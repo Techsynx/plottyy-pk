@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { HeroSearch } from '@/components/home/HeroSearch';
 import { PopularSocieties } from '@/components/home/PopularSocieties';
-import { ListingCard } from '@/components/listings/ListingCard';
+import { HomeFeaturedListings } from '@/components/home/HomeFeaturedListings';
 import { getFilteredListings } from '@/lib/actions/listings';
 import { 
   ShieldCheck, 
@@ -93,32 +93,7 @@ export default async function HomePage() {
         </div>
 
         {/* 3. Featured Verified Properties Grid */}
-        <section className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-            <div>
-              <div className="flex items-center space-x-2 text-xs font-bold text-[#0F6B5C] uppercase tracking-wider">
-                <ShieldCheck className="w-4 h-4 text-[#7FA37A]" />
-                <span>Verified by Plottyy</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1F2420] tracking-tight mt-1">
-                Featured Plots & Luxury Properties
-              </h2>
-            </div>
-            <Link
-              href="/listings"
-              className="text-xs font-bold text-[#0F6B5C] hover:text-[#0c564a] flex items-center space-x-1"
-            >
-              <span>View all properties</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredListings.map((item) => (
-              <ListingCard key={item.id} listing={item} />
-            ))}
-          </div>
-        </section>
+        <HomeFeaturedListings initialListings={listings} />
 
         {/* 4. Popular Societies Showcase */}
         <PopularSocieties />

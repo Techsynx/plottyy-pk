@@ -41,38 +41,53 @@ export function ListingGrid({
 
   // Synchronize client-created listings in real-time across the marketplace
   useEffect(() => {
+    let combined = [...initialListings];
+
     try {
-      const stored = localStorage.getItem('plottyy_user_listings');
-      if (stored) {
-        const customList: Listing[] = JSON.parse(stored);
-        if (customList.length > 0) {
-          // Filter matching custom listings
-          const matchedCustom = customList.filter((item) => {
-            if (currentCity && item.city?.name?.toLowerCase() !== currentCity.toLowerCase()) {
-              return false;
-            }
-            if (currentType && item.property_type !== currentType) {
-              return false;
-            }
-            return true;
-          });
-
-          // Merge without duplicates
-          const existingIds = new Set(initialListings.map((l) => l.id));
-          const toAdd = matchedCustom.filter((l) => !existingIds.has(l.id));
-
-          if (toAdd.length > 0) {
-            const combined = [...toAdd, ...initialListings];
-            setDisplayListings(combined);
-            setTotalCount(combined.length);
-            return;
-          }
+      const sources = ['plottyy_user_listings', 'plottyy_all_public_listings'];
+      for (const key of sources) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const customList: Listing[] = JSON.parse(stored);
+          const existingIds = new Set(combined.map((l) => l.id));
+          const toAdd = customList.filter((l) => !existingIds.has(l.id));
+          combined = [...toAdd, ...combined];
         }
       }
     } catch (e) {}
 
-    setDisplayListings(initialListings);
-    setTotalCount(initialTotal);
+    const filterListings = (list: Listing[]) => {
+      return list.filter((item) => {
+        if (currentCity && item.city?.name?.toLowerCase() !== currentCity.toLowerCase() && item.city?.slug?.toLowerCase() !== currentCity.toLowerCase()) {
+          return false;
+        }
+        if (currentType && item.property_type !== currentType) {
+          return false;
+        }
+        return true;
+      });
+    };
+
+    const initialFiltered = filterListings(combined);
+    setDisplayListings(initialFiltered);
+    setTotalCount(initialFiltered.length);
+
+    // Live background fetch from cloud API for cross-browser visitors
+    fetch(`/api/listings${currentCity ? `?city=${encodeURIComponent(currentCity)}` : ''}${currentType ? `&type=${encodeURIComponent(currentType)}` : ''}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.listings && Array.isArray(data.listings)) {
+          const existingIds = new Set(combined.map((l) => l.id));
+          const fresh = data.listings.filter((l: Listing) => !existingIds.has(l.id));
+          if (fresh.length > 0) {
+            combined = [...fresh, ...combined];
+            const updated = filterListings(combined);
+            setDisplayListings(updated);
+            setTotalCount(updated.length);
+          }
+        }
+      })
+      .catch(() => {});
   }, [initialListings, initialTotal, currentCity, currentType]);
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

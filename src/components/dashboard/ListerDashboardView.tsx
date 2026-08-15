@@ -54,26 +54,45 @@ export function ListerDashboardView({
   useEffect(() => {
     let list = [...initialListings];
     try {
-      const stored = localStorage.getItem('plottyy_user_listings');
-      if (stored) {
-        const custom: Listing[] = JSON.parse(stored);
-        const existingIds = new Set(list.map((l) => l.id));
-        const newOnes = custom.filter((l) => !existingIds.has(l.id));
-        list = [...newOnes, ...list];
+      const sources = ['plottyy_user_listings', 'plottyy_all_public_listings'];
+      for (const key of sources) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const custom: Listing[] = JSON.parse(stored);
+          const existingIds = new Set(list.map((l) => l.id));
+          const newOnes = custom.filter((l) => !existingIds.has(l.id));
+          list = [...newOnes, ...list];
+        }
       }
     } catch (e) {}
 
-    if (user) {
-      const userOnly = list.filter(
+    const filterForUser = (all: Listing[]) => {
+      if (!user) return all;
+      const userOnly = all.filter(
         (l) =>
           l.user_id === user.id ||
           (user.username && l.user?.username?.toLowerCase() === user.username.toLowerCase()) ||
           (user.phone_number && l.contact_phone?.replace(/[^0-9]/g, '') === user.phone_number.replace(/[^0-9]/g, ''))
       );
-      setListings(userOnly.length > 0 ? userOnly : list);
-    } else {
-      setListings(list);
-    }
+      return userOnly.length > 0 ? userOnly : all;
+    };
+
+    setListings(filterForUser(list));
+
+    // Live background fetch
+    fetch('/api/listings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.listings && Array.isArray(data.listings)) {
+          const existingIds = new Set(list.map((l) => l.id));
+          const fresh = data.listings.filter((l: Listing) => !existingIds.has(l.id));
+          if (fresh.length > 0) {
+            list = [...fresh, ...list];
+            setListings(filterForUser(list));
+          }
+        }
+      })
+      .catch(() => {});
   }, [user, initialListings]);
 
   // Profile form state
