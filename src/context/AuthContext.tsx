@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Profile } from '@/types';
 import { PROFILES_DATA } from '@/lib/data/mock-db';
+import { createClient, SUPABASE_ANON_KEY } from '@/lib/supabase/client';
 
 interface AuthContextType {
   user: Profile | null;
@@ -21,101 +22,155 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Unauthenticated by default for first-time visitors
   const [user, setUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  useEffect(() => {
-    try {
-      const savedUserId = localStorage.getItem('plottyy_active_user_id');
-      if (savedUserId) {
-        // Clear legacy mock demo users
-        if (savedUserId.startsWith('a0000000-0000-0000-0000-00000000000')) {
-          localStorage.removeItem('plottyy_active_user_id');
-          setUser(null);
-          return;
-        }
+  // Initialize Supabase client
+  const supabase = createClient();
 
-        // Check local registered profiles
-        const registered = localStorage.getItem('plottyy_registered_profiles');
-        if (registered) {
-          const list: Profile[] = JSON.parse(registered);
-          const found = list.find((p) => p.id === savedUserId);
-          if (found) {
-            setUser(found);
+  useEffect(() => {
+    // 1. Listen to real Supabase Auth sessions (Google OAuth / Email)
+    const initAuth = async () => {
+      try {
+        if (SUPABASE_ANON_KEY) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            const authUser = session.user;
+            const meta = authUser.user_metadata || {};
+            const cleanHandle = (authUser.email?.split('@')[0] || `agent_${authUser.id.slice(0, 5)}`).replace(/[^a-z0-9_-]/g, '').toLowerCase();
+
+            const realProfile: Profile = {
+              id: authUser.id,
+              username: meta.username || cleanHandle,
+              full_name: meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Verified Agent',
+              email: authUser.email || '',
+              phone_number: meta.phone_number || '+92 300 0000000',
+              phone_verified_at: new Date().toISOString(),
+              avatar_url: meta.avatar_url || meta.picture || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400',
+              cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
+              role: 'lister',
+              agency_name: meta.agency_name || `${meta.full_name || cleanHandle} Real Estate`,
+              license_number: meta.license_number || `REG-${authUser.id.slice(0, 6).toUpperCase()}`,
+              office_address: meta.office_address || 'Pakistan',
+              experience_years: 5,
+              operating_areas: ['DHA Defence', 'Bahria Town'],
+              website: null,
+              is_verified: true,
+              rating: 5.0,
+              reviews_count: 1,
+              bio: meta.bio || 'Verified real estate consultant on plottyy.',
+              social_links: {},
+              created_at: authUser.created_at || new Date().toISOString(),
+            };
+
+            setUser(realProfile);
             return;
           }
         }
-
-        const foundInDb = PROFILES_DATA.find((p) => p.id === savedUserId);
-        if (foundInDb && !foundInDb.id.startsWith('a0000000-0000-0000-0000-00000000000')) {
-          setUser(foundInDb);
-        }
+      } catch (e) {
+        console.error('Supabase getSession error:', e);
       }
-    } catch (e) {
-      // Ignore in SSR
+
+      // 2. Check local client storage
+      try {
+        const savedUserId = localStorage.getItem('plottyy_active_user_id');
+        if (savedUserId) {
+          // Clear legacy mock demo users
+          if (savedUserId.startsWith('a0000000-0000-0000-0000-00000000000')) {
+            localStorage.removeItem('plottyy_active_user_id');
+            setUser(null);
+            return;
+          }
+
+          const registered = localStorage.getItem('plottyy_registered_profiles');
+          if (registered) {
+            const list: Profile[] = JSON.parse(registered);
+            const found = list.find((p) => p.id === savedUserId);
+            if (found) {
+              setUser(found);
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    initAuth();
+
+    // Subscribe to auth state changes
+    if (SUPABASE_ANON_KEY) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const authUser = session.user;
+          const meta = authUser.user_metadata || {};
+          const cleanHandle = (authUser.email?.split('@')[0] || `agent_${authUser.id.slice(0, 5)}`).replace(/[^a-z0-9_-]/g, '').toLowerCase();
+
+          const realProfile: Profile = {
+            id: authUser.id,
+            username: meta.username || cleanHandle,
+            full_name: meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Verified Agent',
+            email: authUser.email || '',
+            phone_number: meta.phone_number || '+92 300 0000000',
+            phone_verified_at: new Date().toISOString(),
+            avatar_url: meta.avatar_url || meta.picture || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400',
+            cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
+            role: 'lister',
+            agency_name: meta.agency_name || `${meta.full_name || cleanHandle} Real Estate`,
+            license_number: meta.license_number || `REG-${authUser.id.slice(0, 6).toUpperCase()}`,
+            office_address: meta.office_address || 'Pakistan',
+            experience_years: 5,
+            operating_areas: ['DHA Defence', 'Bahria Town'],
+            website: null,
+            is_verified: true,
+            rating: 5.0,
+            reviews_count: 1,
+            bio: meta.bio || 'Verified real estate consultant on plottyy.',
+            social_links: {},
+            created_at: authUser.created_at || new Date().toISOString(),
+          };
+
+          setUser(realProfile);
+          localStorage.setItem('plottyy_active_user_id', realProfile.id);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          localStorage.removeItem('plottyy_active_user_id');
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, []);
 
   const loginWithGoogle = async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    
-    // Check if user has an existing registered profile
-    let currentProfile: Profile | null = null;
-    try {
-      const registered = localStorage.getItem('plottyy_registered_profiles');
-      if (registered) {
-        const list: Profile[] = JSON.parse(registered);
-        if (list.length > 0) {
-          currentProfile = list[list.length - 1]; // Pick the latest user profile
-        }
+
+    if (SUPABASE_ANON_KEY) {
+      // Real Google OAuth Redirect via Supabase
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('Google OAuth Error:', error);
+        alert(`Google OAuth Error: ${error.message}`);
+        setIsLoading(false);
       }
-    } catch (e) {}
-
-    // If no existing profile, create a clean dynamic Google profile
-    if (!currentProfile) {
-      const timestamp = Date.now().toString().slice(-4);
-      currentProfile = {
-        id: `usr_${Date.now()}`,
-        username: `google_user_${timestamp}`,
-        full_name: 'Google Verified Realtor',
-        email: 'user@gmail.com',
-        phone_number: '+92 300 0000000',
-        phone_verified_at: new Date().toISOString(),
-        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-        cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
-        role: 'lister',
-        agency_name: 'Verified Real Estate Brokerage',
-        license_number: `REG-${timestamp}`,
-        office_address: 'Pakistan',
-        experience_years: 3,
-        operating_areas: ['DHA Defence', 'Bahria Town'],
-        website: null,
-        is_verified: true,
-        rating: 5.0,
-        reviews_count: 1,
-        bio: 'Professional verified real estate consultant.',
-        social_links: {},
-        created_at: new Date().toISOString(),
-      };
-
-      try {
-        const list = [currentProfile];
-        localStorage.setItem('plottyy_registered_profiles', JSON.stringify(list));
-      } catch (e) {}
-
-      try {
-        const { saveAgentProfile } = await import('@/lib/actions/agents');
-        await saveAgentProfile(currentProfile);
-      } catch (e) {}
+      return;
     }
 
-    setUser(currentProfile);
-    localStorage.setItem('plottyy_active_user_id', currentProfile.id);
+    // Fallback: If SUPABASE_ANON_KEY environment variable is not added to Vercel yet
+    alert('Please add NEXT_PUBLIC_SUPABASE_ANON_KEY to your Vercel Environment Variables to enable live Google account redirection.');
     setIsLoading(false);
-    setIsAuthModalOpen(false);
   };
 
   const loginWithEmail = async (email: string) => {
@@ -263,7 +318,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (SUPABASE_ANON_KEY) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {}
+    }
     setUser(null);
     localStorage.removeItem('plottyy_active_user_id');
   };
