@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   Listing, 
@@ -50,6 +50,31 @@ export function ListerDashboardView({
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [importModalOpen, setImportModalOpen] = useState(false);
+
+  useEffect(() => {
+    let list = [...initialListings];
+    try {
+      const stored = localStorage.getItem('plottyy_user_listings');
+      if (stored) {
+        const custom: Listing[] = JSON.parse(stored);
+        const existingIds = new Set(list.map((l) => l.id));
+        const newOnes = custom.filter((l) => !existingIds.has(l.id));
+        list = [...newOnes, ...list];
+      }
+    } catch (e) {}
+
+    if (user) {
+      const userOnly = list.filter(
+        (l) =>
+          l.user_id === user.id ||
+          (user.username && l.user?.username?.toLowerCase() === user.username.toLowerCase()) ||
+          (user.phone_number && l.contact_phone?.replace(/[^0-9]/g, '') === user.phone_number.replace(/[^0-9]/g, ''))
+      );
+      setListings(userOnly.length > 0 ? userOnly : list);
+    } else {
+      setListings(list);
+    }
+  }, [user, initialListings]);
 
   // Profile form state
   const [profFullName, setProfFullName] = useState(user?.full_name || '');

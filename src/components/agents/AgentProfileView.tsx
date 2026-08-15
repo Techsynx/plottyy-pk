@@ -56,6 +56,35 @@ export function AgentProfileView({
   const [editYoutube, setEditYoutube] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [agentListings, setAgentListings] = useState<Listing[]>([]);
+
+  useEffect(() => {
+    let combined = [...initialListings];
+    try {
+      const sources = ['plottyy_user_listings', 'plottyy_all_public_listings'];
+      for (const key of sources) {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const list: Listing[] = JSON.parse(stored);
+          const existingIds = new Set(combined.map((l) => l.id));
+          const newOnes = list.filter((l) => !existingIds.has(l.id));
+          combined = [...newOnes, ...combined];
+        }
+      }
+    } catch (e) {}
+
+    if (agent) {
+      const filtered = combined.filter(
+        (l) =>
+          l.user_id === agent.id ||
+          (agent.username && l.user?.username?.toLowerCase() === agent.username.toLowerCase()) ||
+          (agent.phone_number && l.contact_phone?.replace(/[^0-9]/g, '') === agent.phone_number.replace(/[^0-9]/g, ''))
+      );
+      setAgentListings(filtered);
+    } else {
+      setAgentListings([]);
+    }
+  }, [agent, initialListings]);
 
   useEffect(() => {
     if (!agent) {
@@ -197,10 +226,6 @@ export function AgentProfileView({
       </div>
     );
   }
-
-  const agentListings = initialListings.filter(
-    (l) => l.user_id === agent.id || l.user?.username === agent.username
-  );
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-20">

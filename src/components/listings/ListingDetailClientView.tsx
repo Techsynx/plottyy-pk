@@ -41,15 +41,36 @@ export function ListingDetailClientView({
   useEffect(() => {
     if (!listing) {
       try {
-        const stored = localStorage.getItem('plottyy_user_listings');
-        if (stored) {
-          const list: Listing[] = JSON.parse(stored);
-          const found = list.find((l) => l.slug === slug || l.id === slug);
-          if (found) {
-            setListing(found);
+        const decodedSlug = decodeURIComponent(slug).toLowerCase().trim();
+        const sources = ['plottyy_user_listings', 'plottyy_all_public_listings'];
+        let found: Listing | null = null;
+
+        for (const key of sources) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const list: Listing[] = JSON.parse(stored);
+            const match = list.find(
+              (l) =>
+                l.slug?.toLowerCase() === decodedSlug ||
+                l.slug?.toLowerCase() === slug.toLowerCase() ||
+                l.id === slug ||
+                l.id === decodedSlug ||
+                decodedSlug.includes(l.slug?.toLowerCase()) ||
+                l.slug?.toLowerCase().includes(decodedSlug)
+            );
+            if (match) {
+              found = match;
+              break;
+            }
           }
         }
-      } catch (e) {}
+
+        if (found) {
+          setListing(found);
+        }
+      } catch (e) {
+        console.error('Error finding listing in storage:', e);
+      }
     }
   }, [listing, slug]);
 
