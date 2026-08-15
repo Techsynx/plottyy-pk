@@ -6,13 +6,51 @@ import { ListingFilters } from '@/components/listings/ListingFilters';
 import { ListingGrid } from '@/components/listings/ListingGrid';
 import { ListingsSearchHeader } from '@/components/listings/ListingsSearchHeader';
 
-export const metadata: Metadata = {
-  title: 'Search Verified Plots & Properties in Pakistan | plottyy',
-  description: 'Browse thousands of verified plots, houses, flats, and commercial properties with live pricing in Lakh and Crore across Lahore, Islamabad, Karachi, and Rawalpindi.',
-};
-
 interface ListingsPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://plotty.unicorn-realtors.com';
+
+export async function generateMetadata({ searchParams }: ListingsPageProps): Promise<Metadata> {
+  const resolved = await searchParams;
+  const city = typeof resolved.city === 'string' ? resolved.city : '';
+  const type = typeof resolved.type === 'string' ? resolved.type : 'plot';
+  const query = typeof resolved.query === 'string' ? resolved.query : '';
+  const purpose = resolved.purpose === 'rent' ? 'for Rent' : 'for Sale';
+
+  const typeLabel = type === 'plot' ? 'Plots' : type === 'commercial' ? 'Commercial Land' : type === 'house' ? 'Houses' : 'Properties';
+  const cityLabel = city ? `in ${city.charAt(0).toUpperCase() + city.slice(1)}` : 'in Pakistan';
+
+  const title = query
+    ? `"${query}" — ${typeLabel} ${purpose} ${cityLabel} | plottyy Plot Finder`
+    : `${typeLabel} ${purpose} ${cityLabel} — 5 Marla, 10 Marla & 1 Kanal | plottyy`;
+
+  const description = `Find verified ${typeLabel.toLowerCase()} ${purpose} ${cityLabel} on Plottyy by Unicorn Realtors. Compare prices in Lakh and Crore, verify GPS plot locations, and chat directly with authorized listers on WhatsApp.`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      `plots ${cityLabel}`,
+      `plot finder ${city}`,
+      `${typeLabel} ${cityLabel}`,
+      `buy plot in ${city || 'pakistan'}`,
+      `dha ${city || 'lahore'} plots`,
+      `bahria town ${city || 'islamabad'} plots`,
+      `unicorn realtors`,
+      `exhuzaifa`,
+      `plottyy`,
+    ],
+    alternates: {
+      canonical: `${SITE_URL}/listings${city ? `?city=${city}` : ''}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}/listings`,
+    },
+  };
 }
 
 export default async function ListingsPage({ searchParams }: ListingsPageProps) {

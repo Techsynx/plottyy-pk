@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { HeroSearch } from '@/components/home/HeroSearch';
 import { PopularSocieties } from '@/components/home/PopularSocieties';
 import { HomeFeaturedListings } from '@/components/home/HomeFeaturedListings';
+import { HomeSEOFAQ } from '@/components/home/HomeSEOFAQ';
 import { getFilteredListings } from '@/lib/actions/listings';
 import { 
   ShieldCheck, 
@@ -151,7 +152,47 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* 6. Lister CTA Banner */}
+        {/* 6. Comprehensive FAQ & SEO Guide */}
+        <HomeSEOFAQ />
+
+        {/* 7. High-Intent Property Search Keywords & Society Hubs */}
+        <section className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8E3DC] space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#8A8D89]">
+            Popular Real Estate Searches in Pakistan
+          </h3>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {[
+              { label: 'Plots in Lahore', href: '/listings?city=lahore&type=plot' },
+              { label: 'DHA Lahore Phase 6 Plots', href: '/listings?city=lahore&query=DHA+Phase+6' },
+              { label: 'DHA Phase 7 Lahore', href: '/listings?city=lahore&query=DHA+Phase+7' },
+              { label: 'DHA Phase 9 Prism', href: '/listings?city=lahore&query=Phase+9+Prism' },
+              { label: 'Bahria Town Lahore Plots', href: '/listings?city=lahore&query=Bahria+Town' },
+              { label: 'Plots in Islamabad', href: '/listings?city=islamabad&type=plot' },
+              { label: 'DHA Islamabad Phase 2', href: '/listings?city=islamabad&query=DHA+Phase+2' },
+              { label: 'Bahria Town Islamabad', href: '/listings?city=islamabad&query=Bahria+Town' },
+              { label: 'Plots in Karachi', href: '/listings?city=karachi&type=plot' },
+              { label: 'DHA City Karachi', href: '/listings?city=karachi&query=DHA+City' },
+              { label: 'Plots in Faisalabad', href: '/listings?city=faisalabad&type=plot' },
+              { label: 'FDA City Faisalabad', href: '/listings?city=faisalabad&query=FDA+City' },
+              { label: '5 Marla Plots for Sale', href: '/listings?type=plot&maxSize=5' },
+              { label: '10 Marla Plots for Sale', href: '/listings?type=plot&minSize=6&maxSize=10' },
+              { label: '1 Kanal Plots for Sale', href: '/listings?type=plot&minSize=15&maxSize=25' },
+              { label: 'Commercial Plots in Pakistan', href: '/listings?type=commercial' },
+              { label: 'Unicorn Realtors Showcase', href: '/agents/exhuzaifa' },
+              { label: 'Certified Real Estate Agencies', href: '/agents' },
+            ].map((kw) => (
+              <Link
+                key={kw.label}
+                href={kw.href}
+                className="bg-[#FAF8F5] hover:bg-[#E6F3F0] hover:text-[#0F6B5C] border border-[#E8E3DC] text-[#6B726D] px-3 py-1.5 rounded-lg transition-colors font-semibold"
+              >
+                {kw.label}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* 8. Lister CTA Banner */}
         <section className="bg-gradient-to-r from-[#0F6B5C] to-[#09443a] text-white rounded-3xl p-8 sm:p-12 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 max-w-xl">
             <span className="text-xs font-bold text-[#7FA37A] uppercase tracking-wider">
