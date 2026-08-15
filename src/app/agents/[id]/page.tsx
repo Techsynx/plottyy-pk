@@ -1,7 +1,8 @@
 import React from 'react';
 import { Metadata } from 'next';
-import { PROFILES_DATA, getHydratedListings } from '@/lib/data/mock-db';
+import { PROFILES_DATA } from '@/lib/data/mock-db';
 import { getAgentProfileByHandleOrId } from '@/lib/actions/agents';
+import { getFilteredListings } from '@/lib/actions/listings';
 import { AgentProfileView } from '@/components/agents/AgentProfileView';
 
 interface AgentDetailPageProps {
@@ -35,7 +36,7 @@ export default async function AgentDetailPage({ params }: AgentDetailPageProps) 
     (p) => p.username?.toLowerCase() === id.toLowerCase() || p.id === id
   );
 
-  const allListings = getHydratedListings();
+  const { listings: allListings } = await getFilteredListings();
 
   return (
     <AgentProfileView

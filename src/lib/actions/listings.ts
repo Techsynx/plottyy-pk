@@ -5,6 +5,7 @@ import { LISTINGS_DATA, CITIES_DATA, LOCATIONS_DATA, getHydratedListings, getHyd
 import { convertToSqft } from '@/lib/constants';
 import { listingSchema, ListingInput } from '@/lib/validations/listing';
 import { getSupabaseServer } from '@/lib/supabase/server';
+import { getCloudState, saveListingToCloud } from '@/lib/cloud-sync';
 import { revalidatePath } from 'next/cache';
 
 const GLOBAL_CUSTOM_LISTINGS: Listing[] = [];
@@ -15,7 +16,7 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
 }> {
   let dbListings: Listing[] = [];
 
-  // 1. Fetch live listings from Supabase Postgres Database
+  // 1. Fetch live listings from Supabase Postgres Database if configured
   const supabase = getSupabaseServer();
   if (supabase) {
     try {
@@ -82,12 +83,21 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     }
   }
 
-  // Combine DB listings + Global listings + Static listings without duplicates
+  // 2. Fetch live listings from Universal Cloud Synchronizer (Available to all browsers worldwide)
+  const cloudState = await getCloudState();
+  const cloudListings = cloudState.listings || [];
+
+  // Combine DB listings + Cloud listings + Global in-memory + Static listings without duplicates
   const existingIds = new Set(dbListings.map((l) => l.id));
+  const uniqueCloud = cloudListings.filter((l) => !existingIds.has(l.id));
+  uniqueCloud.forEach((l) => existingIds.add(l.id));
+
   const customFiltered = GLOBAL_CUSTOM_LISTINGS.filter((l) => !existingIds.has(l.id));
+  customFiltered.forEach((l) => existingIds.add(l.id));
+
   const staticFiltered = getHydratedListings().filter((l) => !existingIds.has(l.id));
 
-  let results = [...dbListings, ...customFiltered, ...staticFiltered];
+  let results = [...dbListings, ...uniqueCloud, ...customFiltered, ...staticFiltered];
 
   // Apply filters
   if (filters.city) {
@@ -225,7 +235,17 @@ export async function getListingBySlug(slug: string): Promise<Listing | null> {
     }
   }
 
-  // 2. Fallback to in-memory / mock database
+  // 2. Query Universal Cloud Synchronizer
+  const cloudState = await getCloudState();
+  const cloudFound = cloudState.listings?.find(
+    (l) => l.slug?.toLowerCase() === clean || l.id === slug || clean.includes(l.slug?.toLowerCase())
+  );
+  if (cloudFound) {
+    cloudFound.views_count += 1;
+    return cloudFound;
+  }
+
+  // 3. Fallback to in-memory / mock database
   const custom = GLOBAL_CUSTOM_LISTINGS.find((l) => l.slug.toLowerCase() === clean || l.id === slug);
   if (custom) {
     custom.views_count += 1;
@@ -321,7 +341,10 @@ export async function createListing(
       photos: effectivePhotos,
     };
 
-    // 1. Insert into Supabase with safe 2-second timeout so requests NEVER hang
+    // 1. Save to Universal Cloud Synchronizer (Available to all browsers worldwide immediately)
+    await saveListingToCloud(newListing);
+
+    // 2. Insert into Supabase if configured with safe timeout
     const supabase = getSupabaseServer();
     if (supabase) {
       try {
@@ -359,7 +382,7 @@ export async function createListing(
             published_at: newListing.published_at,
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 2000)),
-        ]).catch((e) => console.warn('Supabase insert timed out or table missing, continuing:', e?.message));
+        ]).catch((e) => console.warn('Supabase insert timed out, continuing:', e?.message));
       } catch (e) {}
     }
 

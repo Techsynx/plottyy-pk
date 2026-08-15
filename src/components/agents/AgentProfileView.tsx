@@ -73,17 +73,32 @@ export function AgentProfileView({
       }
     } catch (e) {}
 
-    if (agent) {
-      const filtered = combined.filter(
+    const filterListings = (list: Listing[], targetAgent: Profile | null) => {
+      if (!targetAgent) return [];
+      return list.filter(
         (l) =>
-          l.user_id === agent.id ||
-          (agent.username && l.user?.username?.toLowerCase() === agent.username.toLowerCase()) ||
-          (agent.phone_number && l.contact_phone?.replace(/[^0-9]/g, '') === agent.phone_number.replace(/[^0-9]/g, ''))
+          l.user_id === targetAgent.id ||
+          (targetAgent.username && l.user?.username?.toLowerCase() === targetAgent.username.toLowerCase()) ||
+          (targetAgent.phone_number && l.contact_phone?.replace(/[^0-9]/g, '') === targetAgent.phone_number.replace(/[^0-9]/g, ''))
       );
-      setAgentListings(filtered);
-    } else {
-      setAgentListings([]);
-    }
+    };
+
+    setAgentListings(filterListings(combined, agent));
+
+    // Background live fetch for cross-browser visitors
+    fetch('/api/listings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.listings && Array.isArray(data.listings)) {
+          const existingIds = new Set(combined.map((l) => l.id));
+          const fresh = data.listings.filter((l: Listing) => !existingIds.has(l.id));
+          if (fresh.length > 0) {
+            combined = [...fresh, ...combined];
+            setAgentListings(filterListings(combined, agent));
+          }
+        }
+      })
+      .catch(() => {});
   }, [agent, initialListings]);
 
   useEffect(() => {

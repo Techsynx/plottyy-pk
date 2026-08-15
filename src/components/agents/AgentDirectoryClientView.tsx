@@ -78,6 +78,40 @@ export function AgentDirectoryClientView({
     } catch (e) {
       console.error('Error hydrating agents directory:', e);
     }
+
+    // Live background fetch for cross-browser synchronization
+    Promise.all([
+      fetch('/api/profiles').then((r) => r.json()).catch(() => ({})),
+      fetch('/api/listings').then((r) => r.json()).catch(() => ({})),
+    ]).then(([profilesData, listingsData]) => {
+      if (profilesData?.agents && Array.isArray(profilesData.agents)) {
+        const seen = new Set<string>();
+        const merged: Profile[] = [];
+        for (const ag of profilesData.agents) {
+          const handle = (ag.username || ag.id).toLowerCase();
+          if (!seen.has(handle)) {
+            seen.add(handle);
+            merged.push(ag);
+          }
+        }
+        for (const ag of initialAgents) {
+          const handle = (ag.username || ag.id).toLowerCase();
+          if (!seen.has(handle)) {
+            seen.add(handle);
+            merged.push(ag);
+          }
+        }
+        setAgents(merged);
+      }
+
+      if (listingsData?.listings && Array.isArray(listingsData.listings)) {
+        setAllListings((prev) => {
+          const existingIds = new Set(prev.map((l) => l.id));
+          const fresh = listingsData.listings.filter((l: Listing) => !existingIds.has(l.id));
+          return [...fresh, ...prev];
+        });
+      }
+    });
   }, [initialAgents, initialAllListings]);
 
   return (

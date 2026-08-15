@@ -3,6 +3,7 @@
 import { PROFILES_DATA } from '@/lib/data/mock-db';
 import { Profile } from '@/types';
 import { getSupabaseServer } from '@/lib/supabase/server';
+import { getCloudState, saveProfileToCloud } from '@/lib/cloud-sync';
 import { revalidatePath } from 'next/cache';
 
 export interface UsernameCheckResult {
@@ -80,6 +81,20 @@ export async function checkUsernameAvailability(
     } catch (e) {}
   }
 
+  // Check Cloud State
+  const cloudState = await getCloudState();
+  const cloudCollision = cloudState.profiles.find(
+    (p) => p.username?.toLowerCase() === username && p.id !== currentUserId
+  );
+  if (cloudCollision) {
+    const suggested = `${username}_${Math.floor(10 + Math.random() * 90)}`;
+    return {
+      isAvailable: false,
+      message: `@${username} is already claimed by another agency.`,
+      suggested,
+    };
+  }
+
   const collision = GLOBAL_REGISTERED_PROFILES.find(
     (p) => p.username?.toLowerCase() === username && p.id !== currentUserId
   );
@@ -100,7 +115,10 @@ export async function checkUsernameAvailability(
 }
 
 export async function saveAgentProfile(profile: Profile): Promise<{ success: boolean; profile: Profile }> {
-  // 1. Save to Supabase Cloud Postgres Database
+  // 1. Save to Global Cloud Sync (Accessible by all browsers worldwide)
+  await saveProfileToCloud(profile);
+
+  // 2. Save to Supabase Cloud Postgres Database if connected
   const supabase = getSupabaseServer();
   if (supabase) {
     try {
@@ -132,8 +150,10 @@ export async function saveAgentProfile(profile: Profile): Promise<{ success: boo
     }
   }
 
-  // 2. Update local in-memory registry
-  const index = GLOBAL_REGISTERED_PROFILES.findIndex((p) => p.id === profile.id || p.username?.toLowerCase() === profile.username?.toLowerCase());
+  // 3. Update local in-memory registry
+  const index = GLOBAL_REGISTERED_PROFILES.findIndex(
+    (p) => p.id === profile.id || p.username?.toLowerCase() === profile.username?.toLowerCase()
+  );
   if (index !== -1) {
     GLOBAL_REGISTERED_PROFILES[index] = { ...GLOBAL_REGISTERED_PROFILES[index], ...profile };
   } else {
@@ -149,7 +169,7 @@ export async function saveAgentProfile(profile: Profile): Promise<{ success: boo
 export async function getAgentProfileByHandleOrId(handleOrId: string): Promise<Profile | null> {
   const clean = handleOrId.toLowerCase().trim();
 
-  // 1. Query Supabase Cloud Database first (available to any browser worldwide)
+  // 1. Query Supabase Cloud Database first
   const supabase = getSupabaseServer();
   if (supabase) {
     try {
@@ -189,7 +209,16 @@ export async function getAgentProfileByHandleOrId(handleOrId: string): Promise<P
     }
   }
 
-  // 2. Fallback to in-memory / mock registry
+  // 2. Query Global Cloud Synchronizer
+  const cloudState = await getCloudState();
+  const cloudFound = cloudState.profiles.find(
+    (p) => p.username?.toLowerCase() === clean || p.id === handleOrId
+  );
+  if (cloudFound) {
+    return cloudFound;
+  }
+
+  // 3. Fallback to in-memory / mock registry
   const found = GLOBAL_REGISTERED_PROFILES.find(
     (p) => p.username?.toLowerCase() === clean || p.id === handleOrId
   );
@@ -197,6 +226,8 @@ export async function getAgentProfileByHandleOrId(handleOrId: string): Promise<P
 }
 
 export async function getAllAgents(): Promise<Profile[]> {
+  let dbProfiles: Profile[] = [];
+
   const supabase = getSupabaseServer();
   if (supabase) {
     try {
@@ -206,7 +237,7 @@ export async function getAllAgents(): Promise<Profile[]> {
         .order('created_at', { ascending: false });
 
       if (data && data.length > 0) {
-        const dbProfiles: Profile[] = data.map((d) => ({
+        dbProfiles = data.map((d) => ({
           id: d.id,
           username: d.username,
           full_name: d.full_name,
@@ -229,16 +260,33 @@ export async function getAllAgents(): Promise<Profile[]> {
           social_links: d.social_links || {},
           created_at: d.created_at,
         }));
-
-        // Deduplicate with default list
-        const existingHandles = new Set(dbProfiles.map((p) => (p.username || p.id).toLowerCase()));
-        const remaining = PROFILES_DATA.filter((p) => !existingHandles.has((p.username || p.id).toLowerCase()));
-        return [...dbProfiles, ...remaining];
       }
     } catch (e) {
       console.error('Error fetching all agents from Supabase:', e);
     }
   }
 
-  return GLOBAL_REGISTERED_PROFILES;
+  const cloudState = await getCloudState();
+  const allCustom = [...dbProfiles, ...cloudState.profiles, ...GLOBAL_REGISTERED_PROFILES];
+
+  const seen = new Set<string>();
+  const merged: Profile[] = [];
+
+  for (const ag of allCustom) {
+    const key = (ag.username || ag.id).toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(ag);
+    }
+  }
+
+  for (const ag of PROFILES_DATA) {
+    const key = (ag.username || ag.id).toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(ag);
+    }
+  }
+
+  return merged;
 }
