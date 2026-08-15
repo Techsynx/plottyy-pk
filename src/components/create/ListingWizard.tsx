@@ -273,10 +273,18 @@ export function ListingWizard() {
       })),
     };
 
-    const res = await createListing(inputData, isDraft);
+    const res = await createListing(inputData, isDraft, user?.id);
     setIsSubmitting(false);
 
     if (res.success && res.slug) {
+      if (res.listing) {
+        try {
+          const existing = localStorage.getItem('plottyy_user_listings');
+          const list = existing ? JSON.parse(existing) : [];
+          list.unshift(res.listing);
+          localStorage.setItem('plottyy_user_listings', JSON.stringify(list));
+        } catch (e) {}
+      }
       router.push(`/listings/${res.slug}`);
     } else {
       setErrorMessage(res.error || 'Failed to create listing. Please check inputs.');

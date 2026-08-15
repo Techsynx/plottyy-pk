@@ -12,17 +12,15 @@ import {
   MessageCircle, 
   MapPin, 
   Star, 
-  Briefcase, 
-  Award, 
   Globe, 
-  Calendar, 
-  Layers, 
-  Sparkles, 
   Share2, 
-  CheckCircle2, 
-  ExternalLink, 
   ChevronLeft, 
-  ArrowRight 
+  Edit3,
+  X,
+  UploadCloud,
+  Save,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 
 interface AgentProfileViewProps {
@@ -36,12 +34,30 @@ export function AgentProfileView({
   initialListings,
   handleOrId,
 }: AgentProfileViewProps) {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [agent, setAgent] = useState<Profile | null>(initialAgent);
   const [copied, setCopied] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Edit form state
+  const [editFullName, setEditFullName] = useState('');
+  const [editAgencyName, setEditAgencyName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editLicense, setEditLicense] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editCoverUrl, setEditCoverUrl] = useState('');
+  const [editOperatingAreas, setEditOperatingAreas] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
+  const [editFacebook, setEditFacebook] = useState('');
+  const [editInstagram, setEditInstagram] = useState('');
+  const [editLinkedin, setEditLinkedin] = useState('');
+  const [editYoutube, setEditYoutube] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    // If not found from server static list, check logged in user or localStorage registered agencies
     if (!agent) {
       if (user && (user.username?.toLowerCase() === handleOrId.toLowerCase() || user.id === handleOrId)) {
         setAgent(user);
@@ -59,11 +75,31 @@ export function AgentProfileView({
             setAgent(found);
           }
         }
-      } catch (e) {
-        // Ignore
-      }
+      } catch (e) {}
     }
   }, [agent, user, handleOrId]);
+
+  // Sync edit form with current agent
+  useEffect(() => {
+    if (agent) {
+      setEditFullName(agent.full_name || '');
+      setEditAgencyName(agent.agency_name || '');
+      setEditPhone(agent.phone_number || '');
+      setEditAddress(agent.office_address || '');
+      setEditLicense(agent.license_number || '');
+      setEditBio(agent.bio || '');
+      setEditAvatarUrl(agent.avatar_url || '');
+      setEditCoverUrl(agent.cover_url || '');
+      setEditOperatingAreas(agent.operating_areas?.join(', ') || 'DHA Defence, Bahria Town');
+      setEditWebsite(agent.website || '');
+      setEditFacebook(agent.social_links?.facebook || '');
+      setEditInstagram(agent.social_links?.instagram || '');
+      setEditLinkedin(agent.social_links?.linkedin || '');
+      setEditYoutube(agent.social_links?.youtube || '');
+    }
+  }, [agent]);
+
+  const isOwner = user && agent && (user.id === agent.id || user.username?.toLowerCase() === agent.username?.toLowerCase());
 
   const handleShare = () => {
     if (typeof window !== 'undefined' && navigator.clipboard) {
@@ -73,7 +109,63 @@ export function AgentProfileView({
     }
   };
 
-  // If agency is truly not found
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) setEditAvatarUrl(ev.target.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) setEditCoverUrl(ev.target.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    const areas = editOperatingAreas.split(',').map((s) => s.trim()).filter(Boolean);
+
+    const updatedProfile: Partial<Profile> = {
+      full_name: editFullName,
+      agency_name: editAgencyName,
+      phone_number: editPhone,
+      office_address: editAddress,
+      license_number: editLicense,
+      bio: editBio,
+      avatar_url: editAvatarUrl,
+      cover_url: editCoverUrl,
+      operating_areas: areas.length > 0 ? areas : ['DHA Defence', 'Bahria Town'],
+      website: editWebsite || null,
+      social_links: {
+        facebook: editFacebook,
+        instagram: editInstagram,
+        linkedin: editLinkedin,
+        youtube: editYoutube,
+      },
+    };
+
+    await updateProfile(updatedProfile);
+    if (agent) {
+      setAgent({ ...agent, ...updatedProfile } as Profile);
+    }
+
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setIsEditModalOpen(false);
+    }, 1200);
+  };
+
   if (!agent) {
     return (
       <div className="min-h-[70vh] bg-[#FAF8F5] flex items-center justify-center p-4">
@@ -84,7 +176,7 @@ export function AgentProfileView({
           <div className="space-y-1">
             <h2 className="text-xl font-black text-[#1F2420]">Agency Profile Not Found</h2>
             <p className="text-xs text-[#8A8D89]">
-              The agency handle <strong className="text-[#0F6B5C]">@{handleOrId}</strong> has not been claimed yet or is still awaiting publication.
+              The agency handle <strong className="text-[#0F6B5C]">@{handleOrId}</strong> has not been claimed yet or is awaiting publication.
             </p>
           </div>
           <div className="pt-2 flex flex-col sm:flex-row gap-2">
@@ -106,7 +198,6 @@ export function AgentProfileView({
     );
   }
 
-  // Filter listings for this agent
   const agentListings = initialListings.filter(
     (l) => l.user_id === agent.id || l.user?.username === agent.username
   );
@@ -120,14 +211,14 @@ export function AgentProfileView({
           <img
             src={agent.cover_url}
             alt={agent.agency_name || agent.full_name}
-            className="w-full h-full object-cover opacity-35"
+            className="w-full h-full object-cover opacity-40"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#0F6B5C] to-[#083830]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
         
-        {/* Top Breadcrumb & Share Button */}
+        {/* Top Breadcrumb & Actions */}
         <div className="absolute top-6 left-0 right-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <Link
             href="/agents"
@@ -137,14 +228,27 @@ export function AgentProfileView({
             <span>All Agencies</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={handleShare}
-            className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-black/30 hover:bg-black/50 backdrop-blur px-3.5 py-1.5 rounded-xl border border-white/15 transition-all"
-          >
-            <Share2 className="w-3.5 h-3.5" />
-            <span>{copied ? 'Link Copied!' : 'Share Agency'}</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-[#D97B4F] hover:bg-[#c4683c] px-3.5 py-1.5 rounded-xl shadow-xs transition-all"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit My Profile</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center space-x-1.5 text-xs font-bold text-white bg-black/30 hover:bg-black/50 backdrop-blur px-3.5 py-1.5 rounded-xl border border-white/15 transition-all"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>{copied ? 'Link Copied!' : 'Share'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -203,11 +307,22 @@ export function AgentProfileView({
               </div>
             </div>
 
-            {/* Direct Contact CTAs */}
+            {/* Direct Contact & Edit CTAs */}
             <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0">
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 bg-[#E6F3F0] hover:bg-[#d8ece7] text-[#0F6B5C] border border-[#0F6B5C]/20 px-4 py-3 rounded-2xl font-bold text-xs transition-all"
+                >
+                  <Edit3 className="w-4 h-4 text-[#D97B4F]" />
+                  <span>Edit Profile</span>
+                </button>
+              )}
+
               <a
                 href={`tel:${agent.phone_number.replace(/\s+/g, '')}`}
-                className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-[#0F6B5C] hover:bg-[#0c564a] text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-xs transition-all hover:shadow-sm"
+                className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-[#0F6B5C] hover:bg-[#0c564a] text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-xs transition-all"
               >
                 <Phone className="w-4 h-4" />
                 <span>Call {agent.phone_number}</span>
@@ -217,10 +332,10 @@ export function AgentProfileView({
                 href={`https://wa.me/${agent.phone_number.replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-[#25D366] hover:bg-[#20ba59] text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-xs transition-all hover:shadow-sm"
+                className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-[#25D366] hover:bg-[#20ba59] text-white px-5 py-3 rounded-2xl font-bold text-xs shadow-xs transition-all"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>WhatsApp Message</span>
+                <span>WhatsApp</span>
               </a>
             </div>
 
@@ -232,7 +347,7 @@ export function AgentProfileView({
             {/* Bio Column */}
             <div className="lg:col-span-2 space-y-2">
               <h4 className="text-xs font-extrabold text-[#8A8D89] uppercase tracking-wider">
-                About Agency & Mission
+                About Agency & Track Record
               </h4>
               <p className="text-xs sm:text-sm text-[#4A4E4B] leading-relaxed">
                 {agent.bio || 'Professional real estate consultancy dedicated to transparent plot purchases, residential sales, and verified title deed transfers in Pakistan.'}
@@ -342,6 +457,254 @@ export function AgentProfileView({
         </div>
 
       </div>
+
+      {/* QUICK PROFILE EDIT MODAL */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-[#E8E3DC] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto animate-in zoom-in-95 duration-150">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-[#E8E3DC] bg-[#FAF8F5]/60 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#0F6B5C] flex items-center justify-center text-white font-black text-sm">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-[#1F2420]">
+                    Edit Public Agency Profile
+                  </h3>
+                  <p className="text-[10px] text-[#8A8D89]">
+                    Updates appear live immediately on your public showcase
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1.5 rounded-xl text-[#8A8D89] hover:bg-black/5 hover:text-[#1F2420] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveProfileSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 text-left">
+              
+              {/* Photo & Banner Upload */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#FAF8F5] p-4 rounded-2xl border border-[#E8E3DC]">
+                <div>
+                  <label className="text-xs font-bold text-[#1F2420] block mb-1.5">
+                    Profile Picture / Headshot
+                  </label>
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={editAvatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200'}
+                      alt="Avatar"
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-xs bg-white flex-shrink-0"
+                    />
+                    <label className="cursor-pointer bg-white border border-[#E8E3DC] hover:border-[#0F6B5C] text-[#1F2420] px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5">
+                      <UploadCloud className="w-3.5 h-3.5 text-[#0F6B5C]" />
+                      <span>Change Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarFile}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#1F2420] block mb-1.5">
+                    Agency Cover Banner
+                  </label>
+                  <div className="space-y-1.5">
+                    <div className="h-10 rounded-xl overflow-hidden bg-gray-200 border border-[#E8E3DC]">
+                      {editCoverUrl ? (
+                        <img src={editCoverUrl} alt="Cover" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-r from-[#0F6B5C] to-[#0A3E35]" />
+                      )}
+                    </div>
+                    <label className="cursor-pointer inline-flex bg-white border border-[#E8E3DC] hover:border-[#0F6B5C] text-[#1F2420] px-3 py-1 rounded-xl text-xs font-bold transition-all shadow-xs items-center space-x-1">
+                      <UploadCloud className="w-3 h-3 text-[#0F6B5C]" />
+                      <span>Upload Banner</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCoverFile}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Name & Agency */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#1F2420]">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFullName}
+                    onChange={(e) => setEditFullName(e.target.value)}
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#1F2420]">Agency / Brokerage Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editAgencyName}
+                    onChange={(e) => setEditAgencyName(e.target.value)}
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Phone & License */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#1F2420]">WhatsApp & Calling Number</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="0326 8282409"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#1F2420]">License / Reg No.</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. LDA-REG-2024-8841"
+                    value={editLicense}
+                    onChange={(e) => setEditLicense(e.target.value)}
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Operating Areas & Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#1F2420]">Specialized Societies (Comma Separated)</label>
+                  <input
+                    type="text"
+                    placeholder="DHA Phase 6, Bahria Town, Gulberg"
+                    value={editOperatingAreas}
+                    onChange={(e) => setEditOperatingAreas(e.target.value)}
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-[#1F2420]">Office Address</label>
+                  <input
+                    type="text"
+                    placeholder="Plaza 14, Commercial Broadway, DHA Phase 6, Lahore"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Bio */}
+              <div>
+                <label className="text-[11px] font-bold text-[#1F2420]">About Agency / Bio</label>
+                <textarea
+                  rows={3}
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  placeholder="Share your verified track record, specialized projects, and investment advisory..."
+                  className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl p-3 text-xs text-[#1F2420] focus:outline-none"
+                />
+              </div>
+
+              {/* Social Channels */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#FAF8F5] p-3.5 rounded-2xl border border-[#E8E3DC]">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8A8D89] uppercase">Website URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://agency.pk"
+                    value={editWebsite}
+                    onChange={(e) => setEditWebsite(e.target.value)}
+                    className="w-full mt-1 bg-white border border-[#E8E3DC] rounded-xl px-2.5 py-1.5 text-xs text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#8A8D89] uppercase">Facebook URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://facebook.com/page"
+                    value={editFacebook}
+                    onChange={(e) => setEditFacebook(e.target.value)}
+                    className="w-full mt-1 bg-white border border-[#E8E3DC] rounded-xl px-2.5 py-1.5 text-xs text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#8A8D89] uppercase">Instagram URL</label>
+                  <input
+                    type="text"
+                    placeholder="https://instagram.com/page"
+                    value={editInstagram}
+                    onChange={(e) => setEditInstagram(e.target.value)}
+                    className="w-full mt-1 bg-white border border-[#E8E3DC] rounded-xl px-2.5 py-1.5 text-xs text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-[#8A8D89] uppercase">YouTube URL</label>
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/@channel"
+                    value={editYoutube}
+                    onChange={(e) => setEditYoutube(e.target.value)}
+                    className="w-full mt-1 bg-white border border-[#E8E3DC] rounded-xl px-2.5 py-1.5 text-xs text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center space-x-2 pt-2 border-t border-[#E8E3DC]">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 bg-white border border-[#E8E3DC] hover:bg-[#FAF8F5] text-[#1F2420] py-2.5 rounded-xl font-bold text-xs transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 bg-[#0F6B5C] hover:bg-[#0c564a] text-white py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center justify-center space-x-1.5"
+                >
+                  {isSaving ? (
+                    <span>Saving...</span>
+                  ) : saveSuccess ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                      <span>Updated!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -1,19 +1,20 @@
 'use server';
 
 import { FilterState, Listing, ListingStatus } from '@/types';
-import { LISTINGS_DATA, getHydratedListings, getHydratedListingBySlug } from '@/lib/data/mock-db';
+import { LISTINGS_DATA, CITIES_DATA, LOCATIONS_DATA, getHydratedListings, getHydratedListingBySlug } from '@/lib/data/mock-db';
 import { convertToSqft } from '@/lib/constants';
 import { listingSchema, ListingInput } from '@/lib/validations/listing';
 import { revalidatePath } from 'next/cache';
+
+const GLOBAL_CUSTOM_LISTINGS: Listing[] = [];
 
 export async function getFilteredListings(filters: FilterState = {}): Promise<{
   listings: Listing[];
   total: number;
 }> {
-  // Simulate network latency
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  let results = getHydratedListings();
+  let results = [...GLOBAL_CUSTOM_LISTINGS, ...getHydratedListings()];
 
   // 1. City Filter
   if (filters.city) {
@@ -51,7 +52,7 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     results = results.filter((l) => l.price <= Number(filters.maxPrice));
   }
 
-  // 7. Size Filter (Normalized to Sq. Ft)
+  // 7. Size Filter
   if (filters.minSize !== undefined && filters.minSize > 0) {
     const minSqft = convertToSqft(Number(filters.minSize), filters.sizeUnit || 'marla');
     results = results.filter((l) => l.size_in_sqft >= minSqft);
@@ -62,8 +63,8 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
   }
 
   // 8. Bedrooms Filter
-  if (filters.bedrooms && filters.bedrooms !== 'any') {
-    results = results.filter((l) => (l.bedrooms || 0) >= Number(filters.bedrooms));
+  if (filters.bedrooms) {
+    results = results.filter((l) => l.bedrooms && l.bedrooms >= Number(filters.bedrooms));
   }
 
   // 9. Verified Only Filter
@@ -71,8 +72,8 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     results = results.filter((l) => l.is_verified);
   }
 
-  // 10. Query String (Free Search against Title / Society)
-  if (filters.query && filters.query.trim() !== '') {
+  // 10. Keyword Search
+  if (filters.query) {
     const q = filters.query.toLowerCase().trim();
     results = results.filter(
       (l) =>
@@ -92,7 +93,6 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
   } else if (filters.sortBy === 'popular') {
     results.sort((a, b) => b.views_count - a.views_count);
   } else {
-    // default newest
     results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
@@ -103,15 +103,25 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
 }
 
 export async function getListingBySlug(slug: string): Promise<Listing | null> {
+  const custom = GLOBAL_CUSTOM_LISTINGS.find((l) => l.slug === slug);
+  if (custom) {
+    custom.views_count += 1;
+    return custom;
+  }
+
   const listing = getHydratedListingBySlug(slug);
   if (listing) {
-    // increment view count
     listing.views_count += 1;
+    return listing;
   }
-  return listing;
+  return null;
 }
 
-export async function createListing(input: ListingInput, isDraft = false): Promise<{ success: boolean; slug?: string; error?: string }> {
+export async function createListing(
+  input: ListingInput, 
+  isDraft = false,
+  userId?: string
+): Promise<{ success: boolean; slug?: string; listing?: Listing; error?: string }> {
   try {
     const validated = listingSchema.parse(input);
     const id = `lst-${Date.now()}`;
@@ -122,10 +132,12 @@ export async function createListing(input: ListingInput, isDraft = false): Promi
     const slug = `${slugBase}-${id.slice(-4)}`;
     
     const size_in_sqft = convertToSqft(validated.size, validated.size_unit);
+    const city = CITIES_DATA.find((c) => c.id === validated.city_id);
+    const location = LOCATIONS_DATA.find((loc) => loc.id === validated.location_id);
 
     const newListing: Listing = {
       id,
-      user_id: 'a0000000-0000-0000-0000-000000000001', // Demo lister ID
+      user_id: userId || `usr_${Date.now()}`,
       title: validated.title,
       slug,
       description: validated.description,
@@ -133,7 +145,9 @@ export async function createListing(input: ListingInput, isDraft = false): Promi
       property_type: validated.property_type,
       subtype: validated.subtype || null,
       city_id: validated.city_id,
+      city,
       location_id: validated.location_id,
+      location,
       address_details: validated.address_details || null,
       size: validated.size,
       size_unit: validated.size_unit,
@@ -170,12 +184,12 @@ export async function createListing(input: ListingInput, isDraft = false): Promi
       })),
     };
 
-    // Prepend to in-memory list
+    GLOBAL_CUSTOM_LISTINGS.unshift(newListing);
     LISTINGS_DATA.unshift(newListing);
     revalidatePath('/listings');
     revalidatePath('/dashboard');
 
-    return { success: true, slug };
+    return { success: true, slug, listing: newListing };
   } catch (err: any) {
     console.error('Error creating listing:', err);
     return { success: false, error: err?.message || 'Validation failed' };
@@ -183,7 +197,7 @@ export async function createListing(input: ListingInput, isDraft = false): Promi
 }
 
 export async function updateListingStatus(listingId: string, status: ListingStatus): Promise<boolean> {
-  const item = LISTINGS_DATA.find((l) => l.id === listingId);
+  const item = GLOBAL_CUSTOM_LISTINGS.find((l) => l.id === listingId) || LISTINGS_DATA.find((l) => l.id === listingId);
   if (item) {
     item.status = status;
     item.updated_at = new Date().toISOString();
