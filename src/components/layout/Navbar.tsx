@@ -155,7 +155,7 @@ export function Navbar() {
                       className="w-full flex items-center space-x-2 px-4 py-2.5 text-xs font-bold text-[#1F2420] hover:bg-[#FAF8F5] text-left border-t border-[#E8E3DC]"
                     >
                       <Sparkles className="w-4 h-4 text-[#D97B4F]" />
-                      <span>Switch / Add Account</span>
+                      <span>Add / Register Agency</span>
                     </button>
 
                     <button
@@ -258,7 +258,7 @@ export function Navbar() {
               }}
               className="w-full py-2.5 bg-white/10 text-white rounded-xl text-xs font-bold"
             >
-              {user ? 'Switch Agent Account' : 'Agent Sign In with Google / Email'}
+              {user ? 'Add / Register Another Agency' : 'Agent Sign In with Google / Email'}
             </button>
 
             <Link

@@ -12,7 +12,6 @@ interface AuthContextType {
   loginWithEmail: (email: string) => Promise<void>;
   registerAgent: (agentData: Partial<Profile>) => Promise<void>;
   updateProfile: (updatedData: Partial<Profile>) => Promise<void>;
-  switchAgentAccount: (profileId: string) => void;
   logout: () => void;
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
@@ -31,9 +30,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const savedUserId = localStorage.getItem('plottyy_active_user_id');
       if (savedUserId) {
-        const found = PROFILES_DATA.find((p) => p.id === savedUserId);
-        if (found) {
-          setUser(found);
+        // Clear legacy mock demo users
+        if (savedUserId.startsWith('a0000000-0000-0000-0000-00000000000')) {
+          localStorage.removeItem('plottyy_active_user_id');
+          setUser(null);
+          return;
+        }
+
+        // Check local registered profiles
+        const registered = localStorage.getItem('plottyy_registered_profiles');
+        if (registered) {
+          const list: Profile[] = JSON.parse(registered);
+          const found = list.find((p) => p.id === savedUserId);
+          if (found) {
+            setUser(found);
+            return;
+          }
+        }
+
+        const foundInDb = PROFILES_DATA.find((p) => p.id === savedUserId);
+        if (foundInDb && !foundInDb.id.startsWith('a0000000-0000-0000-0000-00000000000')) {
+          setUser(foundInDb);
         }
       }
     } catch (e) {
@@ -43,11 +60,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     setIsLoading(true);
-    // Simulate instantaneous Google OAuth handshake
     await new Promise((r) => setTimeout(r, 600));
-    const defaultUser = PROFILES_DATA[0];
-    setUser(defaultUser);
-    localStorage.setItem('plottyy_active_user_id', defaultUser.id);
+    
+    // Check if user has an existing registered profile
+    let currentProfile: Profile | null = null;
+    try {
+      const registered = localStorage.getItem('plottyy_registered_profiles');
+      if (registered) {
+        const list: Profile[] = JSON.parse(registered);
+        if (list.length > 0) {
+          currentProfile = list[list.length - 1]; // Pick the latest user profile
+        }
+      }
+    } catch (e) {}
+
+    // If no existing profile, create a clean dynamic Google profile
+    if (!currentProfile) {
+      const timestamp = Date.now().toString().slice(-4);
+      currentProfile = {
+        id: `usr_${Date.now()}`,
+        username: `google_user_${timestamp}`,
+        full_name: 'Google Verified Realtor',
+        email: 'user@gmail.com',
+        phone_number: '+92 300 0000000',
+        phone_verified_at: new Date().toISOString(),
+        avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
+        cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
+        role: 'lister',
+        agency_name: 'Verified Real Estate Brokerage',
+        license_number: `REG-${timestamp}`,
+        office_address: 'Pakistan',
+        experience_years: 3,
+        operating_areas: ['DHA Defence', 'Bahria Town'],
+        website: null,
+        is_verified: true,
+        rating: 5.0,
+        reviews_count: 1,
+        bio: 'Professional verified real estate consultant.',
+        social_links: {},
+        created_at: new Date().toISOString(),
+      };
+
+      try {
+        const list = [currentProfile];
+        localStorage.setItem('plottyy_registered_profiles', JSON.stringify(list));
+      } catch (e) {}
+
+      try {
+        const { saveAgentProfile } = await import('@/lib/actions/agents');
+        await saveAgentProfile(currentProfile);
+      } catch (e) {}
+    }
+
+    setUser(currentProfile);
+    localStorage.setItem('plottyy_active_user_id', currentProfile.id);
     setIsLoading(false);
     setIsAuthModalOpen(false);
   };
@@ -55,7 +121,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithEmail = async (email: string) => {
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 600));
-    const matched = PROFILES_DATA.find((p) => p.email?.toLowerCase() === email.toLowerCase()) || PROFILES_DATA[0];
+
+    const cleanEmail = email.toLowerCase().trim();
+    let matched: Profile | null = null;
+
+    try {
+      const registered = localStorage.getItem('plottyy_registered_profiles');
+      if (registered) {
+        const list: Profile[] = JSON.parse(registered);
+        matched = list.find((p) => p.email?.toLowerCase() === cleanEmail) || null;
+      }
+    } catch (e) {}
+
+    if (!matched) {
+      const usernameHandle = cleanEmail.split('@')[0].replace(/[^a-z0-9_-]/g, '') || `agent_${Date.now().toString().slice(-4)}`;
+      matched = {
+        id: `usr_${Date.now()}`,
+        username: usernameHandle,
+        full_name: usernameHandle.charAt(0).toUpperCase() + usernameHandle.slice(1),
+        email: cleanEmail,
+        phone_number: '+92 300 0000000',
+        phone_verified_at: new Date().toISOString(),
+        avatar_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400',
+        cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
+        role: 'lister',
+        agency_name: `${usernameHandle.toUpperCase()} Real Estate`,
+        license_number: `REG-${Math.floor(1000 + Math.random() * 9000)}`,
+        office_address: 'Pakistan',
+        experience_years: 3,
+        operating_areas: ['DHA Defence', 'Bahria Town'],
+        website: null,
+        is_verified: true,
+        rating: 5.0,
+        reviews_count: 1,
+        bio: 'Verified real estate agency on plottyy.',
+        social_links: {},
+        created_at: new Date().toISOString(),
+      };
+
+      try {
+        const existing = localStorage.getItem('plottyy_registered_profiles');
+        const list = existing ? JSON.parse(existing) : [];
+        list.push(matched);
+        localStorage.setItem('plottyy_registered_profiles', JSON.stringify(list));
+      } catch (e) {}
+
+      try {
+        const { saveAgentProfile } = await import('@/lib/actions/agents');
+        await saveAgentProfile(matched);
+      } catch (e) {}
+    }
+
     setUser(matched);
     localStorage.setItem('plottyy_active_user_id', matched.id);
     setIsLoading(false);
@@ -72,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const username = `${rawUsername}${PROFILES_DATA.some(p => p.username === rawUsername) ? `_${Math.floor(10 + Math.random() * 90)}` : ''}`;
 
     const newProfile: Profile = {
-      id: `a0000000-0000-0000-0000-${Date.now().toString().slice(-12)}`,
+      id: `usr_${Date.now()}`,
       username: username || `agency_${Date.now().toString().slice(-4)}`,
       full_name: agentData.full_name || 'Verified Realtor',
       email: agentData.email || 'agent@plottyy.pk',
@@ -147,14 +263,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {}
   };
 
-  const switchAgentAccount = (profileId: string) => {
-    const found = PROFILES_DATA.find((p) => p.id === profileId);
-    if (found) {
-      setUser(found);
-      localStorage.setItem('plottyy_active_user_id', found.id);
-    }
-  };
-
   const logout = () => {
     setUser(null);
     localStorage.removeItem('plottyy_active_user_id');
@@ -170,7 +278,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithEmail,
         registerAgent,
         updateProfile,
-        switchAgentAccount,
         logout,
         isAuthModalOpen,
         openAuthModal: () => setIsAuthModalOpen(true),

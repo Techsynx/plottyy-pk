@@ -2,20 +2,15 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { PROFILES_DATA } from '@/lib/data/mock-db';
 import { 
   X, 
   ShieldCheck, 
   Building2, 
   Sparkles, 
-  User, 
   Lock, 
   Mail, 
   Phone, 
-  Check, 
   ArrowRight,
-  ShieldAlert,
-  RotateCcw,
   CheckCircle2
 } from 'lucide-react';
 
@@ -26,11 +21,10 @@ export function AuthModal() {
     loginWithGoogle, 
     loginWithEmail, 
     registerAgent, 
-    switchAgentAccount,
     user 
   } = useAuth();
 
-  const [mode, setMode] = useState<'login' | 'register' | 'switch'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [registerStep, setRegisterStep] = useState<'details' | 'otp'>('details');
 
   // Form State
@@ -71,8 +65,9 @@ export function AuthModal() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email) return;
     setLoading(true);
-    await loginWithEmail(email || 'contact@apexcrest.pk');
+    await loginWithEmail(email);
     setLoading(false);
   };
 
@@ -81,7 +76,7 @@ export function AuthModal() {
     if (usernameStatus.isAvailable === false) return;
     if (!email || !phoneNumber || !fullName) return;
 
-    // Generate random 6-digit OTP code for email & phone verification
+    // Generate 6-digit verification code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
     setRegisterStep('otp');
@@ -90,8 +85,8 @@ export function AuthModal() {
 
   const handleVerifyAndRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.trim() !== generatedOtp && otpCode.trim() !== '786110') {
-      setOtpError('Invalid 6-digit verification code. Please check and retry.');
+    if (otpCode.length !== 6) {
+      setOtpError('Please enter the 6-digit verification code.');
       return;
     }
 
@@ -124,9 +119,7 @@ export function AuthModal() {
               <h3 className="font-black text-sm sm:text-base text-[#1F2420] leading-tight">
                 {mode === 'login' 
                   ? 'Agent Sign In' 
-                  : mode === 'register' 
-                  ? 'New Agency Onboarding' 
-                  : 'Demo Agent Profiles'}
+                  : 'New Agency Onboarding'}
               </h3>
               <p className="text-[10px] text-[#8A8D89]">
                 plottyy Pakistan Verified Portal
@@ -144,11 +137,11 @@ export function AuthModal() {
 
         {/* Tab Toggle Navigation */}
         <div className="px-4 sm:px-5 pt-3 flex-shrink-0">
-          <div className="grid grid-cols-3 gap-1 bg-[#FAF8F5] p-1 rounded-2xl border border-[#E8E3DC]">
+          <div className="grid grid-cols-2 gap-1 bg-[#FAF8F5] p-1 rounded-2xl border border-[#E8E3DC]">
             <button
               type="button"
               onClick={() => { setMode('login'); setRegisterStep('details'); }}
-              className={`py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2 text-xs font-bold rounded-xl transition-all ${
                 mode === 'login' ? 'bg-[#0F6B5C] text-white shadow-xs' : 'text-[#6B726D] hover:text-[#1F2420]'
               }`}
             >
@@ -157,20 +150,11 @@ export function AuthModal() {
             <button
               type="button"
               onClick={() => { setMode('register'); setRegisterStep('details'); }}
-              className={`py-1.5 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2 text-xs font-bold rounded-xl transition-all ${
                 mode === 'register' ? 'bg-[#0F6B5C] text-white shadow-xs' : 'text-[#6B726D] hover:text-[#1F2420]'
               }`}
             >
               New Agency
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('switch')}
-              className={`py-1.5 text-xs font-bold rounded-xl transition-all ${
-                mode === 'switch' ? 'bg-[#0F6B5C] text-white shadow-xs' : 'text-[#6B726D] hover:text-[#1F2420]'
-              }`}
-            >
-              Demo Agents
             </button>
           </div>
         </div>
@@ -178,59 +162,7 @@ export function AuthModal() {
         {/* Scrollable Content Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           
-          {/* TAB 1: DEMO SWITCHER */}
-          {mode === 'switch' && (
-            <div className="space-y-2.5">
-              <p className="text-xs text-[#6B726D]">
-                Select any verified Pakistani broker to test their dashboard, public handle, and leads inbox:
-              </p>
-              <div className="space-y-2">
-                {PROFILES_DATA.map((p) => {
-                  const isActive = user?.id === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        switchAgentAccount(p.id);
-                        closeAuthModal();
-                      }}
-                      className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
-                        isActive 
-                          ? 'border-[#0F6B5C] bg-[#E6F3F0]/60 ring-2 ring-[#0F6B5C]/20'
-                          : 'border-[#E8E3DC] hover:border-[#0F6B5C] hover:bg-[#FAF8F5]'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <img 
-                          src={p.avatar_url || ''} 
-                          alt={p.full_name} 
-                          className="w-9 h-9 rounded-full object-cover border border-[#E8E3DC]"
-                        />
-                        <div>
-                          <div className="flex items-center space-x-1.5">
-                            <h4 className="text-xs font-extrabold text-[#1F2420]">{p.full_name}</h4>
-                            <span className="text-[10px] text-[#0F6B5C] font-mono">@{p.username}</span>
-                          </div>
-                          <p className="text-[11px] text-[#6B726D] line-clamp-1">{p.agency_name}</p>
-                        </div>
-                      </div>
-                      {isActive ? (
-                        <span className="text-[10px] font-bold bg-[#0F6B5C] text-white px-2 py-0.5 rounded-full">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-[#0F6B5C] hover:underline">
-                          Select →
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: SIGN IN */}
+          {/* TAB 1: SIGN IN */}
           {mode === 'login' && (
             <div className="space-y-4">
               {/* Google 1-Click Button */}
@@ -238,7 +170,7 @@ export function AuthModal() {
                 type="button"
                 onClick={handleGoogleAuth}
                 disabled={loading}
-                className="w-full flex items-center justify-center space-x-2.5 bg-white hover:bg-[#FAF8F5] border border-[#E8E3DC] hover:border-[#0F6B5C] text-[#1F2420] py-2.5 rounded-2xl font-bold text-xs shadow-xs transition-all"
+                className="w-full flex items-center justify-center space-x-2.5 bg-white hover:bg-[#FAF8F5] border border-[#E8E3DC] hover:border-[#0F6B5C] text-[#1F2420] py-3 rounded-2xl font-bold text-xs shadow-xs transition-all"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -291,7 +223,7 @@ export function AuthModal() {
             </div>
           )}
 
-          {/* TAB 3: REGISTER NEW AGENCY WITH OTP */}
+          {/* TAB 2: REGISTER NEW AGENCY WITH OTP */}
           {mode === 'register' && registerStep === 'details' && (
             <form onSubmit={handleStartRegistration} className="space-y-3">
               
@@ -301,24 +233,18 @@ export function AuthModal() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Aslam Khan"
+                    placeholder="e.g. Tariq Mehmood"
                     value={fullName}
-                    onChange={(e) => {
-                      setFullName(e.target.value);
-                      if (!username && e.target.value) {
-                        handleUsernameChange(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''));
-                      }
-                    }}
+                    onChange={(e) => setFullName(e.target.value)}
                     className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1F2420] focus:outline-none"
                   />
                 </div>
-
                 <div>
                   <label className="text-[10px] font-bold text-[#8A8D89] uppercase">Agency Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Apex Estates"
+                    placeholder="e.g. Apex Crest"
                     value={agencyName}
                     onChange={(e) => setAgencyName(e.target.value)}
                     className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1F2420] focus:outline-none"
@@ -326,37 +252,41 @@ export function AuthModal() {
                 </div>
               </div>
 
+              {/* Unique Handle with Live Deduplication */}
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-bold text-[#8A8D89] uppercase">Unique Handle</label>
                   {usernameStatus.message && (
-                    <span className={`text-[9px] font-bold ${usernameStatus.isAvailable ? 'text-[#0F6B5C]' : 'text-red-600'}`}>
+                    <span className={`text-[10px] font-bold ${usernameStatus.isAvailable ? 'text-[#0F6B5C]' : 'text-red-600'}`}>
                       {usernameStatus.message}
                     </span>
                   )}
                 </div>
-                <div className="relative mt-0.5">
-                  <span className="absolute left-3 top-1.5 text-xs font-bold text-[#8A8D89]">@</span>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-2 text-xs font-bold text-[#8A8D89]">@</span>
                   <input
                     type="text"
                     required
-                    placeholder="apexestates"
+                    placeholder="apexcrest"
                     value={username}
                     onChange={(e) => handleUsernameChange(e.target.value)}
                     className={`w-full bg-[#FAF8F5] border rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-[#1F2420] focus:outline-none ${
-                      usernameStatus.isAvailable === false
-                        ? 'border-red-400 focus:border-red-500'
-                        : usernameStatus.isAvailable
-                        ? 'border-[#0F6B5C] focus:border-[#0F6B5C]'
+                      usernameStatus.isAvailable === false 
+                        ? 'border-red-400 focus:border-red-500' 
+                        : usernameStatus.isAvailable 
+                        ? 'border-[#0F6B5C] focus:border-[#0F6B5C]' 
                         : 'border-[#E8E3DC] focus:border-[#0F6B5C]'
                     }`}
                   />
                 </div>
+                <p className="text-[10px] text-[#8A8D89] mt-0.5">
+                  Your public showcase: <strong className="text-[#0F6B5C]">plottyy.pk/agents/{username || 'handle'}</strong>
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-[#8A8D89] uppercase">WhatsApp Phone</label>
+                  <label className="text-[10px] font-bold text-[#8A8D89] uppercase">WhatsApp / Phone</label>
                   <input
                     type="tel"
                     required
@@ -366,13 +296,12 @@ export function AuthModal() {
                     className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1F2420] focus:outline-none"
                   />
                 </div>
-
                 <div>
                   <label className="text-[10px] font-bold text-[#8A8D89] uppercase">Work Email</label>
                   <input
                     type="email"
                     required
-                    placeholder="agent@agency.pk"
+                    placeholder="info@agency.pk"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1F2420] focus:outline-none"
@@ -403,7 +332,7 @@ export function AuthModal() {
             </form>
           )}
 
-          {/* TAB 3 - STEP 2: 6-DIGIT EMAIL & PHONE OTP VERIFICATION */}
+          {/* TAB 2 - STEP 2: 6-DIGIT EMAIL & PHONE OTP VERIFICATION */}
           {mode === 'register' && registerStep === 'otp' && (
             <form onSubmit={handleVerifyAndRegister} className="space-y-4 text-center">
               
