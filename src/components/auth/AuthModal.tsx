@@ -412,36 +412,38 @@ export function AuthModal() {
               </div>
 
               <div className="space-y-1">
-                <h4 className="text-sm font-black text-[#1F2420]">Verify Your Agency Credentials</h4>
+                <h4 className="text-sm font-black text-[#1F2420]">Verify Your Agency Email & Phone</h4>
                 <p className="text-xs text-[#6B726D]">
-                  A 6-digit confirmation OTP was dispatched to <strong>{phoneNumber}</strong> and <strong>{email}</strong>.
+                  A 6-digit security OTP was sent to <strong>{phoneNumber}</strong> and <strong>{email}</strong>.
                 </p>
               </div>
 
-              {/* Instant Verification Code Hint for Demo testing */}
-              <div className="bg-[#E6F3F0] border border-[#0F6B5C]/20 p-2.5 rounded-xl text-left">
-                <p className="text-[11px] font-bold text-[#0F6B5C] flex items-center space-x-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Official Verification Code:</span>
+              <div className="bg-[#FAF8F5] border border-[#E8E3DC] p-3 rounded-2xl text-left space-y-1">
+                <p className="text-[11px] font-bold text-[#1F2420] flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#0F6B5C]" />
+                  <span>Two-Factor Agency Verification</span>
                 </p>
-                <p className="text-xs font-mono font-black text-[#1F2420] mt-0.5 tracking-widest">
-                  {generatedOtp}
+                <p className="text-[10px] text-[#8A8D89]">
+                  Enter the 6-digit code received on your email/SMS inbox to activate your certified agency handle.
                 </p>
               </div>
 
               <div>
                 <label className="text-[10px] font-bold text-[#8A8D89] uppercase block mb-1">
-                  Enter 6-Digit OTP
+                  Enter 6-Digit OTP Code
                 </label>
                 <input
                   type="text"
                   maxLength={6}
                   required
                   autoFocus
-                  placeholder="786110"
+                  placeholder="• • • • • •"
                   value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  className="w-48 mx-auto text-center font-mono text-lg font-black tracking-widest bg-[#FAF8F5] border border-[#0F6B5C] focus:ring-2 focus:ring-[#0F6B5C]/20 rounded-xl py-2 text-[#1F2420] focus:outline-none"
+                  onChange={(e) => {
+                    setOtpCode(e.target.value.replace(/[^0-9]/g, ''));
+                    setOtpError('');
+                  }}
+                  className="w-48 mx-auto text-center font-mono text-xl font-black tracking-widest bg-[#FAF8F5] border border-[#0F6B5C] focus:ring-2 focus:ring-[#0F6B5C]/20 rounded-xl py-2.5 text-[#1F2420] focus:outline-none"
                 />
               </div>
 
@@ -455,14 +457,14 @@ export function AuthModal() {
                   onClick={() => setRegisterStep('details')}
                   className="flex-1 bg-white border border-[#E8E3DC] hover:bg-[#FAF8F5] text-[#1F2420] py-2.5 rounded-xl font-bold text-xs transition-all"
                 >
-                  ← Edit Info
+                  ← Back
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
                   className="flex-1 bg-[#0F6B5C] hover:bg-[#0c564a] text-white py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all"
                 >
-                  {loading ? 'Activating...' : 'Verify & Launch'}
+                  {loading ? 'Activating Profile...' : 'Verify & Launch'}
                 </button>
               </div>
 

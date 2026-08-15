@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registerAgent = async (agentData: Partial<Profile>) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 600));
     const rawUsername = (agentData.username || agentData.agency_name || agentData.full_name || 'agency')
       .toLowerCase()
       .trim()
@@ -78,25 +78,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: agentData.email || 'agent@plottyy.pk',
       phone_number: agentData.phone_number || '+92 300 1234567',
       phone_verified_at: new Date().toISOString(),
-      avatar_url: agentData.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-      cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
+      avatar_url: agentData.avatar_url || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400',
+      cover_url: agentData.cover_url || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
       role: 'lister',
       agency_name: agentData.agency_name || 'Prime Real Estate Agency',
       license_number: agentData.license_number || `REG-PK-${Math.floor(1000 + Math.random() * 9000)}`,
       office_address: agentData.office_address || 'Main Boulevard Commercial, Pakistan',
       experience_years: agentData.experience_years || 5,
-      operating_areas: agentData.operating_areas || ['DHA Phase 6', 'Bahria Town'],
+      operating_areas: agentData.operating_areas || ['DHA Defence', 'Bahria Town'],
       website: agentData.website || null,
       is_verified: true,
       rating: 5.0,
       reviews_count: 1,
       bio: agentData.bio || 'Professional real estate agency dedicated to transparent, verified property transactions.',
+      social_links: agentData.social_links || {},
       created_at: new Date().toISOString(),
     };
 
     PROFILES_DATA.push(newProfile);
     setUser(newProfile);
-    localStorage.setItem('plottyy_active_user_id', newProfile.id);
+
+    // Save to local storage registry
+    try {
+      localStorage.setItem('plottyy_active_user_id', newProfile.id);
+      const existing = localStorage.getItem('plottyy_registered_profiles');
+      const list = existing ? JSON.parse(existing) : [];
+      list.push(newProfile);
+      localStorage.setItem('plottyy_registered_profiles', JSON.stringify(list));
+    } catch (e) {}
+
+    // Persist to server action
+    try {
+      const { saveAgentProfile } = await import('@/lib/actions/agents');
+      await saveAgentProfile(newProfile);
+    } catch (e) {}
+
     setIsLoading(false);
     setIsAuthModalOpen(false);
   };
@@ -105,10 +121,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const updated = { ...user, ...updatedData };
     setUser(updated);
-    const index = PROFILES_DATA.findIndex((p) => p.id === user.id);
+    
+    const index = PROFILES_DATA.findIndex((p) => p.id === user.id || p.username === user.username);
     if (index !== -1) {
       PROFILES_DATA[index] = updated;
+    } else {
+      PROFILES_DATA.push(updated);
     }
+
+    try {
+      const existing = localStorage.getItem('plottyy_registered_profiles');
+      const list: Profile[] = existing ? JSON.parse(existing) : [];
+      const idx = list.findIndex(p => p.id === user.id || p.username === user.username);
+      if (idx !== -1) {
+        list[idx] = updated;
+      } else {
+        list.push(updated);
+      }
+      localStorage.setItem('plottyy_registered_profiles', JSON.stringify(list));
+    } catch (e) {}
+
+    try {
+      const { saveAgentProfile } = await import('@/lib/actions/agents');
+      await saveAgentProfile(updated);
+    } catch (e) {}
   };
 
   const switchAgentAccount = (profileId: string) => {

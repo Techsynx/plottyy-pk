@@ -1,6 +1,7 @@
 'use server';
 
 import { PROFILES_DATA } from '@/lib/data/mock-db';
+import { Profile } from '@/types';
 
 export interface UsernameCheckResult {
   isAvailable: boolean;
@@ -26,6 +27,9 @@ const RESERVED_USERNAMES = [
   'privacy',
   'contact',
 ];
+
+// Global in-memory persistence for serverless runtime
+const GLOBAL_REGISTERED_PROFILES: Profile[] = [...PROFILES_DATA];
 
 export async function checkUsernameAvailability(
   rawUsername: string,
@@ -54,7 +58,7 @@ export async function checkUsernameAvailability(
     };
   }
 
-  const collision = PROFILES_DATA.find(
+  const collision = GLOBAL_REGISTERED_PROFILES.find(
     (p) => p.username?.toLowerCase() === username && p.id !== currentUserId
   );
 
@@ -71,4 +75,22 @@ export async function checkUsernameAvailability(
     isAvailable: true,
     message: `@${username} is available!`,
   };
+}
+
+export async function saveAgentProfile(profile: Profile): Promise<{ success: boolean; profile: Profile }> {
+  const index = GLOBAL_REGISTERED_PROFILES.findIndex((p) => p.id === profile.id || p.username === profile.username);
+  if (index !== -1) {
+    GLOBAL_REGISTERED_PROFILES[index] = { ...GLOBAL_REGISTERED_PROFILES[index], ...profile };
+  } else {
+    GLOBAL_REGISTERED_PROFILES.push(profile);
+  }
+  return { success: true, profile };
+}
+
+export async function getAgentProfileByHandleOrId(handleOrId: string): Promise<Profile | null> {
+  const clean = handleOrId.toLowerCase().trim();
+  const found = GLOBAL_REGISTERED_PROFILES.find(
+    (p) => p.username?.toLowerCase() === clean || p.id === handleOrId
+  );
+  return found || null;
 }

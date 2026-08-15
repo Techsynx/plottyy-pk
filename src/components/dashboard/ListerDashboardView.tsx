@@ -60,7 +60,35 @@ export function ListerDashboardView({
   const [profAddress, setProfAddress] = useState(user?.office_address || '');
   const [profLicense, setProfLicense] = useState(user?.license_number || '');
   const [profBio, setProfBio] = useState(user?.bio || '');
+  const [profAvatarUrl, setProfAvatarUrl] = useState(user?.avatar_url || '');
+  const [profCoverUrl, setProfCoverUrl] = useState(user?.cover_url || '');
+  const [profWebsite, setProfWebsite] = useState(user?.website || '');
+  const [profFacebook, setProfFacebook] = useState(user?.social_links?.facebook || '');
+  const [profInstagram, setProfInstagram] = useState(user?.social_links?.instagram || '');
+  const [profLinkedin, setProfLinkedin] = useState(user?.social_links?.linkedin || '');
+  const [profYoutube, setProfYoutube] = useState(user?.social_links?.youtube || '');
+  const [profOperatingAreas, setProfOperatingAreas] = useState(user?.operating_areas?.join(', ') || 'DHA Defence, Bahria Town, Gulberg');
   const [profSaved, setProfSaved] = useState(false);
+
+  const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) setProfAvatarUrl(ev.target.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCoverFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) setProfCoverUrl(ev.target.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleUsernameChange = async (raw: string) => {
     const clean = raw.toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -101,6 +129,7 @@ export function ListerDashboardView({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (usernameStatus.isAvailable === false) return;
+    const areas = profOperatingAreas.split(',').map(s => s.trim()).filter(Boolean);
     await updateProfile({
       full_name: profFullName,
       username: profUsername,
@@ -109,6 +138,16 @@ export function ListerDashboardView({
       office_address: profAddress,
       license_number: profLicense,
       bio: profBio,
+      avatar_url: profAvatarUrl,
+      cover_url: profCoverUrl,
+      website: profWebsite,
+      operating_areas: areas.length > 0 ? areas : ['DHA Defence', 'Bahria Town'],
+      social_links: {
+        facebook: profFacebook,
+        instagram: profInstagram,
+        linkedin: profLinkedin,
+        youtube: profYoutube,
+      },
     });
     setProfSaved(true);
     setTimeout(() => setProfSaved(false), 3000);
@@ -484,121 +523,254 @@ export function ListerDashboardView({
             </div>
 
             {/* Editable Profile Form */}
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <h4 className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
-                Agency Brand & Contact Information
-              </h4>
+            <form onSubmit={handleSaveProfile} className="space-y-6">
+              
+              {/* Photo & Banner Upload Section */}
+              <div className="space-y-4 bg-[#FAF8F5] p-5 rounded-2xl border border-[#E8E3DC]">
+                <h4 className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
+                  Agency Visual Branding (Photos & Banner)
+                </h4>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-[#1F2420]">
-                    Agent / Representative Full Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={profFullName}
-                    onChange={(e) => setProfFullName(e.target.value)}
-                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[#1F2420]">
-                    Agency / Brokerage Company Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={profAgencyName}
-                    onChange={(e) => setProfAgencyName(e.target.value)}
-                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#1F2420]">
-                      Unique Agency Handle / Username
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                  
+                  {/* Avatar / Headshot Upload */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#1F2420] block">
+                      Agent Headshot / Logo
                     </label>
-                    {usernameStatus.message && (
-                      <span className={`text-[10px] font-bold ${usernameStatus.isAvailable ? 'text-[#0F6B5C]' : 'text-red-600'}`}>
-                        {usernameStatus.message}
-                      </span>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={profAvatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200'}
+                        alt="Preview"
+                        className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-xs bg-white"
+                      />
+                      <label className="cursor-pointer bg-white border border-[#E8E3DC] hover:border-[#0F6B5C] text-[#1F2420] px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5">
+                        <UploadCloud className="w-4 h-4 text-[#0F6B5C]" />
+                        <span>Upload Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarFile}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div className="relative mt-1">
-                    <span className="absolute left-3.5 top-2 text-xs font-bold text-[#8A8D89]">@</span>
+
+                  {/* Cover Banner Upload */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-[#1F2420] block">
+                      Agency Cover Banner
+                    </label>
+                    <div className="space-y-2">
+                      <div className="h-16 rounded-xl overflow-hidden bg-gray-200 border border-[#E8E3DC] relative">
+                        {profCoverUrl ? (
+                          <img src={profCoverUrl} alt="Cover" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-r from-[#0F6B5C] to-[#0A3E35] flex items-center justify-center text-[10px] text-white/70 font-bold">
+                            Default Teal Banner
+                          </div>
+                        )}
+                      </div>
+                      <label className="cursor-pointer inline-flex bg-white border border-[#E8E3DC] hover:border-[#0F6B5C] text-[#1F2420] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs items-center space-x-1.5">
+                        <UploadCloud className="w-3.5 h-3.5 text-[#0F6B5C]" />
+                        <span>Upload Custom Banner</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCoverFile}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Identity & Legal Information */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
+                  Agency Credentials & Contact Info
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-[#1F2420]">
+                      Agent / Representative Full Name
+                    </label>
                     <input
                       type="text"
                       required
-                      value={profUsername}
-                      onChange={(e) => handleUsernameChange(e.target.value)}
-                      className={`w-full bg-[#FAF8F5] border rounded-xl pl-8 pr-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none ${
-                        usernameStatus.isAvailable === false
-                          ? 'border-red-400 focus:border-red-500'
-                          : usernameStatus.isAvailable
-                          ? 'border-[#0F6B5C] focus:border-[#0F6B5C]'
-                          : 'border-[#E8E3DC] focus:border-[#0F6B5C]'
-                      }`}
+                      value={profFullName}
+                      onChange={(e) => setProfFullName(e.target.value)}
+                      className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
                     />
                   </div>
-                  <p className="text-[10px] text-[#8A8D89] mt-0.5">
-                    Your public showcase link: <strong className="text-[#0F6B5C]">plottyy.pk/agents/{profUsername || 'handle'}</strong>
-                  </p>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#1F2420]">
+                      Agency / Brokerage Company Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={profAgencyName}
+                      onChange={(e) => setProfAgencyName(e.target.value)}
+                      className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#1F2420]">
+                        Unique Agency Handle / Username
+                      </label>
+                      {usernameStatus.message && (
+                        <span className={`text-[10px] font-bold ${usernameStatus.isAvailable ? 'text-[#0F6B5C]' : 'text-red-600'}`}>
+                          {usernameStatus.message}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3.5 top-2 text-xs font-bold text-[#8A8D89]">@</span>
+                      <input
+                        type="text"
+                        required
+                        value={profUsername}
+                        onChange={(e) => handleUsernameChange(e.target.value)}
+                        className={`w-full bg-[#FAF8F5] border rounded-xl pl-8 pr-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none ${
+                          usernameStatus.isAvailable === false
+                            ? 'border-red-400 focus:border-red-500'
+                            : usernameStatus.isAvailable
+                            ? 'border-[#0F6B5C] focus:border-[#0F6B5C]'
+                            : 'border-[#E8E3DC] focus:border-[#0F6B5C]'
+                        }`}
+                      />
+                    </div>
+                    <p className="text-[10px] text-[#8A8D89] mt-0.5">
+                      Your public showcase link: <strong className="text-[#0F6B5C]">plottyy.pk/agents/{profUsername || 'handle'}</strong>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#1F2420]">
+                      Official Calling & WhatsApp Number
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={profPhone}
+                      onChange={(e) => setProfPhone(e.target.value)}
+                      className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#1F2420]">
+                      Government Registration / License No.
+                    </label>
+                    <input
+                      type="text"
+                      value={profLicense}
+                      onChange={(e) => setProfLicense(e.target.value)}
+                      placeholder="e.g. LDA-REG-2024-8841"
+                      className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#1F2420]">
+                      Specialized Operating Societies (Comma Separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={profOperatingAreas}
+                      onChange={(e) => setProfOperatingAreas(e.target.value)}
+                      placeholder="e.g. DHA Phase 6, Bahria Town, Gulberg III"
+                      className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-[#1F2420]">
-                    Official Calling & WhatsApp Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={profPhone}
-                    onChange={(e) => setProfPhone(e.target.value)}
-                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[#1F2420]">
-                    Government Registration / License No.
+                    Head Office / Branch Address
                   </label>
                   <input
                     type="text"
-                    value={profLicense}
-                    onChange={(e) => setProfLicense(e.target.value)}
-                    placeholder="e.g. LDA-REG-2024-8841"
+                    value={profAddress}
+                    onChange={(e) => setProfAddress(e.target.value)}
+                    placeholder="e.g. Plaza 14, Commercial Broadway, DHA Phase 6, Lahore"
                     className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[#1F2420]">
+                    Agency Bio & Track Record
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={profBio}
+                    onChange={(e) => setProfBio(e.target.value)}
+                    placeholder="Describe your market track record, verified deals, and specialty areas..."
+                    className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl p-3 text-xs text-[#1F2420] focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-[#1F2420]">
-                  Head Office / Branch Address
-                </label>
-                <input
-                  type="text"
-                  value={profAddress}
-                  onChange={(e) => setProfAddress(e.target.value)}
-                  placeholder="e.g. Plaza 14, Commercial Broadway, DHA Phase 6, Lahore"
-                  className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3.5 py-2 text-xs font-bold text-[#1F2420] focus:outline-none"
-                />
-              </div>
+              {/* Social Media Channels */}
+              <div className="space-y-3 bg-[#FAF8F5] p-5 rounded-2xl border border-[#E8E3DC]">
+                <h4 className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
+                  Official Website & Social Media Channels
+                </h4>
 
-              <div>
-                <label className="text-xs font-bold text-[#1F2420]">
-                  Agency Bio & Investment Specialty
-                </label>
-                <textarea
-                  rows={3}
-                  value={profBio}
-                  onChange={(e) => setProfBio(e.target.value)}
-                  placeholder="Describe your market track record, verified deals, and specialty areas..."
-                  className="w-full mt-1 bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl p-3 text-xs text-[#1F2420] focus:outline-none"
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-[#1F2420]">Official Website URL</label>
+                    <input
+                      type="url"
+                      value={profWebsite}
+                      onChange={(e) => setProfWebsite(e.target.value)}
+                      placeholder="https://youragency.pk"
+                      className="w-full mt-1 bg-white border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[#1F2420]">Facebook Page URL</label>
+                    <input
+                      type="url"
+                      value={profFacebook}
+                      onChange={(e) => setProfFacebook(e.target.value)}
+                      placeholder="https://facebook.com/youragency"
+                      className="w-full mt-1 bg-white border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[#1F2420]">Instagram Handle / URL</label>
+                    <input
+                      type="text"
+                      value={profInstagram}
+                      onChange={(e) => setProfInstagram(e.target.value)}
+                      placeholder="https://instagram.com/youragency"
+                      className="w-full mt-1 bg-white border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-[#1F2420]">YouTube Channel URL</label>
+                    <input
+                      type="url"
+                      value={profYoutube}
+                      onChange={(e) => setProfYoutube(e.target.value)}
+                      placeholder="https://youtube.com/@youragency"
+                      className="w-full mt-1 bg-white border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl px-3 py-2 text-xs text-[#1F2420] focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center space-x-3 pt-2">
