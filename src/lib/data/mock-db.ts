@@ -9,6 +9,14 @@ export const CITIES_DATA: City[] = [
   { id: 6, name: 'Faisalabad', slug: 'faisalabad', province: 'Punjab', is_active: true, sort_order: 6 },
   { id: 7, name: 'Multan', slug: 'multan', province: 'Punjab', is_active: true, sort_order: 7 },
   { id: 8, name: 'Gwadar', slug: 'gwadar', province: 'Balochistan', is_active: true, sort_order: 8 },
+  { id: 9, name: 'Gujranwala', slug: 'gujranwala', province: 'Punjab', is_active: true, sort_order: 9 },
+  { id: 10, name: 'Sialkot', slug: 'sialkot', province: 'Punjab', is_active: true, sort_order: 10 },
+  { id: 11, name: 'Abbottabad', slug: 'abbottabad', province: 'Khyber Pakhtunkhwa', is_active: true, sort_order: 11 },
+  { id: 12, name: 'Quetta', slug: 'quetta', province: 'Balochistan', is_active: true, sort_order: 12 },
+  { id: 13, name: 'Hyderabad', slug: 'hyderabad', province: 'Sindh', is_active: true, sort_order: 13 },
+  { id: 14, name: 'Bahawalpur', slug: 'bahawalpur', province: 'Punjab', is_active: true, sort_order: 14 },
+  { id: 15, name: 'Sargodha', slug: 'sargodha', province: 'Punjab', is_active: true, sort_order: 15 },
+  { id: 16, name: 'Sheikhupura', slug: 'sheikhupura', province: 'Punjab', is_active: true, sort_order: 16 },
 ];
 
 export const LOCATIONS_DATA: Location[] = [
@@ -55,10 +63,42 @@ export const LOCATIONS_DATA: Location[] = [
   { id: 403, city_id: 4, parent_id: null, name: 'Top City-1', slug: 'top-city-1', full_address_path: 'Rawalpindi > Top City-1', is_popular: true },
   { id: 404, city_id: 4, parent_id: null, name: 'Mumtaz City', slug: 'mumtaz-city', full_address_path: 'Rawalpindi > Mumtaz City', is_popular: false },
 
+  // Peshawar Locations
+  { id: 501, city_id: 5, parent_id: null, name: 'Hayatabad', slug: 'hayatabad-peshawar', full_address_path: 'Peshawar > Hayatabad', is_popular: true },
+  { id: 502, city_id: 5, parent_id: null, name: 'DHA Peshawar', slug: 'dha-peshawar', full_address_path: 'Peshawar > DHA Peshawar', is_popular: true },
+  { id: 503, city_id: 5, parent_id: null, name: 'Regi Model Town', slug: 'regi-model-town', full_address_path: 'Peshawar > Regi Model Town', is_popular: true },
+
+  // Faisalabad Locations
+  { id: 601, city_id: 6, parent_id: null, name: 'FDA City', slug: 'fda-city-faisalabad', full_address_path: 'Faisalabad > FDA City', is_popular: true },
+  { id: 602, city_id: 6, parent_id: null, name: 'Eden Valley', slug: 'eden-valley-faisalabad', full_address_path: 'Faisalabad > Eden Valley', is_popular: true },
+  { id: 603, city_id: 6, parent_id: null, name: 'Madina Town', slug: 'madina-town-faisalabad', full_address_path: 'Faisalabad > Madina Town', is_popular: true },
+
+  // Multan Locations
+  { id: 701, city_id: 7, parent_id: null, name: 'DHA Multan', slug: 'dha-multan', full_address_path: 'Multan > DHA Multan', is_popular: true },
+  { id: 702, city_id: 7, parent_id: null, name: 'Royal Orchard', slug: 'royal-orchard-multan', full_address_path: 'Multan > Royal Orchard', is_popular: true },
+  { id: 703, city_id: 7, parent_id: null, name: 'Buch Executive Villas', slug: 'buch-villas-multan', full_address_path: 'Multan > Buch Villas', is_popular: true },
+
   // Gwadar Locations
   { id: 801, city_id: 8, parent_id: null, name: 'Singhar Housing Scheme', slug: 'singhar-gwadar', full_address_path: 'Gwadar > Singhar Housing', is_popular: true },
   { id: 802, city_id: 8, parent_id: null, name: 'New Town Gwadar', slug: 'new-town-gwadar', full_address_path: 'Gwadar > New Town', is_popular: true },
   { id: 803, city_id: 8, parent_id: null, name: 'Marine Drive Commercial', slug: 'marine-drive-gwadar', full_address_path: 'Gwadar > Marine Drive', is_popular: true },
+
+  // Gujranwala Locations
+  { id: 901, city_id: 9, parent_id: null, name: 'Citi Housing Gujranwala', slug: 'citi-housing-gujranwala', full_address_path: 'Gujranwala > Citi Housing', is_popular: true },
+  { id: 902, city_id: 9, parent_id: null, name: 'DC Colony', slug: 'dc-colony-gujranwala', full_address_path: 'Gujranwala > DC Colony', is_popular: true },
+  { id: 903, city_id: 9, parent_id: null, name: 'Master City', slug: 'master-city-gujranwala', full_address_path: 'Gujranwala > Master City', is_popular: true },
+
+  // Sialkot Locations
+  { id: 1001, city_id: 10, parent_id: null, name: 'Citi Housing Sialkot', slug: 'citi-housing-sialkot', full_address_path: 'Sialkot > Citi Housing', is_popular: true },
+  { id: 1002, city_id: 10, parent_id: null, name: 'Sialkot Cantt', slug: 'sialkot-cantt', full_address_path: 'Sialkot > Sialkot Cantt', is_popular: true },
+
+  // Abbottabad Locations
+  { id: 1101, city_id: 11, parent_id: null, name: 'Jadoon Phase 2', slug: 'jadoon-phase-2', full_address_path: 'Abbottabad > Jadoon Phase 2', is_popular: true },
+  { id: 1102, city_id: 11, parent_id: null, name: 'Mandian', slug: 'mandian-abbottabad', full_address_path: 'Abbottabad > Mandian', is_popular: true },
+
+  // Quetta Locations
+  { id: 1201, city_id: 12, parent_id: null, name: 'DHA Quetta', slug: 'dha-quetta', full_address_path: 'Quetta > DHA Quetta', is_popular: true },
+  { id: 1202, city_id: 12, parent_id: null, name: 'Zarghoon Housing Scheme', slug: 'zarghoon-housing', full_address_path: 'Quetta > Zarghoon Housing', is_popular: true },
 ];
 
 export const PROFILES_DATA: Profile[] = [

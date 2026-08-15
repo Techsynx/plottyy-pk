@@ -69,6 +69,8 @@ export function ListingWizard() {
   // Step 2: Location
   const [cityId, setCityId] = useState<number>(1); // Default Lahore
   const [locationId, setLocationId] = useState<number>(102); // Default DHA Phase 6
+  const [isCustomSociety, setIsCustomSociety] = useState(false);
+  const [customSocietyName, setCustomSocietyName] = useState('');
   const [addressDetails, setAddressDetails] = useState('');
 
   // Step 3: Size & Specs
@@ -88,19 +90,8 @@ export function ListingWizard() {
   const [isPriceNegotiable, setIsPriceNegotiable] = useState(true);
   const [installmentAvailable, setInstallmentAvailable] = useState(false);
 
-  // Step 5: Photos
-  const [photos, setPhotos] = useState<{ url: string; alt_text?: string; is_cover: boolean }[]>([
-    {
-      url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&auto=format&fit=crop&q=80',
-      alt_text: 'Front plot elevation and boundary',
-      is_cover: true,
-    },
-    {
-      url: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=1200&auto=format&fit=crop&q=80',
-      alt_text: 'Surrounding boulevard and road connectivity',
-      is_cover: false,
-    },
-  ]);
+  // Step 5: Photos (Starts completely empty for every user)
+  const [photos, setPhotos] = useState<{ url: string; alt_text?: string; is_cover: boolean }[]>([]);
   const [customPhotoUrl, setCustomPhotoUrl] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -246,6 +237,10 @@ export function ListingWizard() {
     setIsSubmitting(true);
     setErrorMessage('');
 
+    const effectiveAddressDetails = isCustomSociety && customSocietyName
+      ? `${customSocietyName}${addressDetails ? `, ${addressDetails}` : ''}`
+      : addressDetails;
+
     const inputData = {
       title,
       description,
@@ -254,7 +249,7 @@ export function ListingWizard() {
       subtype,
       city_id: cityId,
       location_id: locationId,
-      address_details: addressDetails,
+      address_details: effectiveAddressDetails,
       size: Number(size),
       size_unit: sizeUnit,
       price: Number(price),
@@ -469,9 +464,14 @@ export function ListingWizard() {
 
           {/* City Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
-              City *
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
+                City *
+              </label>
+              <span className="text-[11px] text-[#0F6B5C] font-semibold">
+                Available Nationwide Across Pakistan
+              </span>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {CITIES_DATA.map((c) => {
                 const isSelected = cityId === c.id;
@@ -482,9 +482,14 @@ export function ListingWizard() {
                     onClick={() => {
                       setCityId(c.id);
                       const locs = LOCATIONS_DATA.filter((l) => l.city_id === c.id);
-                      if (locs.length > 0) setLocationId(locs[0].id);
+                      if (locs.length > 0) {
+                        setLocationId(locs[0].id);
+                        setIsCustomSociety(false);
+                      } else {
+                        setIsCustomSociety(true);
+                      }
                     }}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
                       isSelected
                         ? 'border-[#0F6B5C] bg-[#0F6B5C] text-white shadow-xs'
                         : 'border-[#E8E3DC] text-[#1F2420] hover:bg-[#FAF8F5]'
@@ -499,26 +504,59 @@ export function ListingWizard() {
 
           {/* Society / Area Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
-              Housing Society / Phase / Sector *
-            </label>
-            <select
-              value={locationId}
-              onChange={(e) => setLocationId(Number(e.target.value))}
-              className="w-full bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl p-3 text-sm font-semibold text-[#1F2420] focus:outline-none"
-            >
-              {cityLocations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.full_address_path}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
+                Housing Society / Sector / Phase *
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsCustomSociety(!isCustomSociety)}
+                className="text-xs font-bold text-[#0F6B5C] hover:underline"
+              >
+                {isCustomSociety ? '← Select from list' : '+ Enter custom society name'}
+              </button>
+            </div>
+
+            {isCustomSociety || cityLocations.length === 0 ? (
+              <div className="space-y-1.5">
+                <input
+                  type="text"
+                  required
+                  placeholder="Type society or project name (e.g. Al Noor Orchard, New Metro City, Kingdom Valley, Blue World City, Citi Housing...)"
+                  value={customSocietyName}
+                  onChange={(e) => setCustomSocietyName(e.target.value)}
+                  className="w-full bg-[#FAF8F5] border-2 border-[#0F6B5C] rounded-xl p-3 text-sm font-bold text-[#1F2420] focus:outline-none focus:ring-2 focus:ring-[#0F6B5C]/20"
+                />
+                <p className="text-[11px] text-[#8A8D89]">
+                  Can&apos;t find your society in the list? Enter any custom society or phase name directly.
+                </p>
+              </div>
+            ) : (
+              <select
+                value={locationId}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setIsCustomSociety(true);
+                  } else {
+                    setLocationId(Number(e.target.value));
+                  }
+                }}
+                className="w-full bg-[#FAF8F5] border border-[#E8E3DC] focus:border-[#0F6B5C] rounded-xl p-3 text-sm font-semibold text-[#1F2420] focus:outline-none"
+              >
+                {cityLocations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.full_address_path}
+                  </option>
+                ))}
+                <option value="custom">+ Other / Enter Custom Society Name...</option>
+              </select>
+            )}
           </div>
 
           {/* Street / Plot Address */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-[#8A8D89] uppercase tracking-wider">
-              Plot Number & Street Details (Optional / Hidden from public if preferred)
+              Plot Number & Street Details (Optional / Can be kept private)
             </label>
             <input
               type="text"
