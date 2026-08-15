@@ -26,11 +26,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Initialize Supabase client
   const supabase = createClient();
 
   useEffect(() => {
-    // 1. Listen to real Supabase Auth sessions (Google OAuth / Email)
+    // 1. Check for ?code= from Google OAuth redirect and exchange for real session
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      if (code && SUPABASE_ANON_KEY) {
+        setIsLoading(true);
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          setIsLoading(false);
+          if (data?.session?.user) {
+            const authUser = data.session.user;
+            const meta = authUser.user_metadata || {};
+            const cleanHandle = (authUser.email?.split('@')[0] || `agent_${authUser.id.slice(0, 5)}`).replace(/[^a-z0-9_-]/g, '').toLowerCase();
+
+            const realProfile: Profile = {
+              id: authUser.id,
+              username: meta.username || cleanHandle,
+              full_name: meta.full_name || meta.name || authUser.email?.split('@')[0] || 'Verified Agent',
+              email: authUser.email || '',
+              phone_number: meta.phone_number || '+92 300 0000000',
+              phone_verified_at: new Date().toISOString(),
+              avatar_url: meta.avatar_url || meta.picture || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400',
+              cover_url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600',
+              role: 'lister',
+              agency_name: meta.agency_name || `${meta.full_name || cleanHandle} Real Estate`,
+              license_number: meta.license_number || `REG-${authUser.id.slice(0, 6).toUpperCase()}`,
+              office_address: meta.office_address || 'Pakistan',
+              experience_years: 5,
+              operating_areas: ['DHA Defence', 'Bahria Town'],
+              website: null,
+              is_verified: true,
+              rating: 5.0,
+              reviews_count: 1,
+              bio: meta.bio || 'Verified real estate consultant on plottyy.',
+              social_links: {},
+              created_at: authUser.created_at || new Date().toISOString(),
+            };
+
+            setUser(realProfile);
+            localStorage.setItem('plottyy_active_user_id', realProfile.id);
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        });
+      }
+    }
+
+    // 2. Listen to real Supabase Auth sessions (Google OAuth / Email)
     const initAuth = async () => {
       try {
         if (SUPABASE_ANON_KEY) {
