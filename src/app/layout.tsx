@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     "marla kanal property calculator"
   ],
   authors: [{ name: "plottyy.pk" }],
+  verification: {
+    google: "google4ed8a05a3350c9cb",
+  },
 };
 
 export default function RootLayout({

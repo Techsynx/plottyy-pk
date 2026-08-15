@@ -22,8 +22,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Default to Malik Tariq Mehmood for initial preview, stored in localStorage
-  const [user, setUser] = useState<Profile | null>(PROFILES_DATA[0]);
+  // Unauthenticated by default for first-time visitors
+  const [user, setUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
