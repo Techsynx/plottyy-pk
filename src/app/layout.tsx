@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -50,6 +51,7 @@ export default function RootLayout({
           <Footer />
           <AuthModal />
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
