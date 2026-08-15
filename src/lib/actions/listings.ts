@@ -4,6 +4,7 @@ import { FilterState, Listing, ListingStatus } from '@/types';
 import { LISTINGS_DATA, CITIES_DATA, LOCATIONS_DATA, getHydratedListings, getHydratedListingBySlug } from '@/lib/data/mock-db';
 import { convertToSqft } from '@/lib/constants';
 import { listingSchema, ListingInput } from '@/lib/validations/listing';
+import { getSupabaseServer } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const GLOBAL_CUSTOM_LISTINGS: Listing[] = [];
@@ -12,11 +13,83 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
   listings: Listing[];
   total: number;
 }> {
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  let dbListings: Listing[] = [];
 
-  let results = [...GLOBAL_CUSTOM_LISTINGS, ...getHydratedListings()];
+  // 1. Fetch live listings from Supabase Postgres Database
+  const supabase = getSupabaseServer();
+  if (supabase) {
+    try {
+      let query = supabase.from('listings').select('*').order('created_at', { ascending: false });
 
-  // 1. City Filter
+      if (filters.purpose) {
+        query = query.eq('purpose', filters.purpose);
+      }
+      if (filters.type) {
+        query = query.eq('property_type', filters.type);
+      }
+      if (filters.city) {
+        const cityObj = CITIES_DATA.find((c) => c.name.toLowerCase() === filters.city?.toLowerCase() || c.slug === filters.city?.toLowerCase());
+        if (cityObj) {
+          query = query.eq('city_id', cityObj.id);
+        }
+      }
+
+      const { data } = await query;
+      if (data && data.length > 0) {
+        dbListings = data.map((d) => ({
+          id: d.id,
+          user_id: d.user_id,
+          title: d.title,
+          slug: d.slug,
+          description: d.description,
+          purpose: d.purpose,
+          property_type: d.property_type,
+          subtype: d.subtype,
+          city_id: d.city_id,
+          city: CITIES_DATA.find((c) => c.id === d.city_id),
+          location_id: d.location_id,
+          location: LOCATIONS_DATA.find((loc) => loc.id === d.location_id),
+          address_details: d.address_details,
+          size: Number(d.size),
+          size_unit: d.size_unit,
+          size_in_sqft: Number(d.size_in_sqft),
+          price: Number(d.price),
+          is_price_negotiable: d.is_price_negotiable ?? true,
+          installment_available: d.installment_available ?? false,
+          bedrooms: d.bedrooms,
+          bathrooms: d.bathrooms,
+          floor_number: d.floor_number,
+          total_floors: d.total_floors,
+          facing: d.facing,
+          features: Array.isArray(d.features) ? d.features : [],
+          status: d.status,
+          is_verified: d.is_verified ?? true,
+          verified_at: d.verified_at,
+          is_featured: d.is_featured ?? false,
+          contact_phone: d.contact_phone,
+          contact_whatsapp: d.contact_whatsapp,
+          views_count: d.views_count || 1,
+          leads_count: d.leads_count || 0,
+          favorites_count: d.favorites_count || 0,
+          photos: Array.isArray(d.photos) ? d.photos : [],
+          created_at: d.created_at,
+          updated_at: d.updated_at,
+          published_at: d.published_at,
+        }));
+      }
+    } catch (e) {
+      console.error('Error fetching listings from Supabase:', e);
+    }
+  }
+
+  // Combine DB listings + Global listings + Static listings without duplicates
+  const existingIds = new Set(dbListings.map((l) => l.id));
+  const customFiltered = GLOBAL_CUSTOM_LISTINGS.filter((l) => !existingIds.has(l.id));
+  const staticFiltered = getHydratedListings().filter((l) => !existingIds.has(l.id));
+
+  let results = [...dbListings, ...customFiltered, ...staticFiltered];
+
+  // Apply filters
   if (filters.city) {
     results = results.filter(
       (l) => l.city?.slug.toLowerCase() === filters.city?.toLowerCase() ||
@@ -24,27 +97,22 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     );
   }
 
-  // 2. Location ID Filter
   if (filters.locationId) {
     results = results.filter((l) => l.location_id === Number(filters.locationId));
   }
 
-  // 3. Purpose Filter (Buy/Rent)
   if (filters.purpose) {
     results = results.filter((l) => l.purpose === filters.purpose);
   }
 
-  // 4. Property Type Filter
   if (filters.type) {
     results = results.filter((l) => l.property_type === filters.type);
   }
 
-  // 5. Subtype Filter
   if (filters.subtype) {
     results = results.filter((l) => l.subtype === filters.subtype);
   }
 
-  // 6. Price Range Filter
   if (filters.minPrice !== undefined && filters.minPrice > 0) {
     results = results.filter((l) => l.price >= Number(filters.minPrice));
   }
@@ -52,7 +120,6 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     results = results.filter((l) => l.price <= Number(filters.maxPrice));
   }
 
-  // 7. Size Filter
   if (filters.minSize !== undefined && filters.minSize > 0) {
     const minSqft = convertToSqft(Number(filters.minSize), filters.sizeUnit || 'marla');
     results = results.filter((l) => l.size_in_sqft >= minSqft);
@@ -62,17 +129,14 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     results = results.filter((l) => l.size_in_sqft <= maxSqft);
   }
 
-  // 8. Bedrooms Filter
   if (filters.bedrooms) {
     results = results.filter((l) => l.bedrooms && l.bedrooms >= Number(filters.bedrooms));
   }
 
-  // 9. Verified Only Filter
   if (filters.verifiedOnly) {
     results = results.filter((l) => l.is_verified);
   }
 
-  // 10. Keyword Search
   if (filters.query) {
     const q = filters.query.toLowerCase().trim();
     results = results.filter(
@@ -85,7 +149,6 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
     );
   }
 
-  // 11. Sorting
   if (filters.sortBy === 'price_asc') {
     results.sort((a, b) => a.price - b.price);
   } else if (filters.sortBy === 'price_desc') {
@@ -103,7 +166,67 @@ export async function getFilteredListings(filters: FilterState = {}): Promise<{
 }
 
 export async function getListingBySlug(slug: string): Promise<Listing | null> {
-  const custom = GLOBAL_CUSTOM_LISTINGS.find((l) => l.slug === slug);
+  const clean = decodeURIComponent(slug).toLowerCase().trim();
+
+  // 1. Query Supabase Database first
+  const supabase = getSupabaseServer();
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('listings')
+        .select('*')
+        .or(`slug.ilike.${clean},id.eq.${slug}`)
+        .maybeSingle();
+
+      if (data) {
+        return {
+          id: data.id,
+          user_id: data.user_id,
+          title: data.title,
+          slug: data.slug,
+          description: data.description,
+          purpose: data.purpose,
+          property_type: data.property_type,
+          subtype: data.subtype,
+          city_id: data.city_id,
+          city: CITIES_DATA.find((c) => c.id === data.city_id),
+          location_id: data.location_id,
+          location: LOCATIONS_DATA.find((loc) => loc.id === data.location_id),
+          address_details: data.address_details,
+          size: Number(data.size),
+          size_unit: data.size_unit,
+          size_in_sqft: Number(data.size_in_sqft),
+          price: Number(data.price),
+          is_price_negotiable: data.is_price_negotiable ?? true,
+          installment_available: data.installment_available ?? false,
+          bedrooms: data.bedrooms,
+          bathrooms: data.bathrooms,
+          floor_number: data.floor_number,
+          total_floors: data.total_floors,
+          facing: data.facing,
+          features: Array.isArray(data.features) ? data.features : [],
+          status: data.status,
+          is_verified: data.is_verified ?? true,
+          verified_at: data.verified_at,
+          is_featured: data.is_featured ?? false,
+          contact_phone: data.contact_phone,
+          contact_whatsapp: data.contact_whatsapp,
+          views_count: (data.views_count || 1) + 1,
+          leads_count: data.leads_count || 0,
+          favorites_count: data.favorites_count || 0,
+          photos: Array.isArray(data.photos) ? data.photos : [],
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          published_at: data.published_at,
+        };
+      }
+    } catch (e) {
+      console.error('Error fetching listing from Supabase:', e);
+    }
+  }
+
+  // 2. Fallback to in-memory / mock database
+  const custom = GLOBAL_CUSTOM_LISTINGS.find((l) => l.slug.toLowerCase() === clean || l.id === slug);
   if (custom) {
     custom.views_count += 1;
     return custom;
@@ -184,9 +307,51 @@ export async function createListing(
       })),
     };
 
+    // 1. Insert into Supabase Postgres Database
+    const supabase = getSupabaseServer();
+    if (supabase) {
+      try {
+        await supabase.from('listings').insert({
+          id: newListing.id,
+          user_id: newListing.user_id,
+          title: newListing.title,
+          slug: newListing.slug,
+          description: newListing.description,
+          purpose: newListing.purpose,
+          property_type: newListing.property_type,
+          subtype: newListing.subtype,
+          city_id: newListing.city_id,
+          location_id: newListing.location_id,
+          address_details: newListing.address_details,
+          size: newListing.size,
+          size_unit: newListing.size_unit,
+          size_in_sqft: newListing.size_in_sqft,
+          price: newListing.price,
+          is_price_negotiable: newListing.is_price_negotiable,
+          installment_available: newListing.installment_available,
+          bedrooms: newListing.bedrooms,
+          bathrooms: newListing.bathrooms,
+          floor_number: newListing.floor_number,
+          total_floors: newListing.total_floors,
+          facing: newListing.facing,
+          features: newListing.features,
+          status: newListing.status,
+          is_verified: true,
+          contact_phone: newListing.contact_phone,
+          contact_whatsapp: newListing.contact_whatsapp,
+          photos: newListing.photos,
+          created_at: newListing.created_at,
+          published_at: newListing.published_at,
+        });
+      } catch (e) {
+        console.error('Error inserting listing to Supabase:', e);
+      }
+    }
+
     GLOBAL_CUSTOM_LISTINGS.unshift(newListing);
     LISTINGS_DATA.unshift(newListing);
     revalidatePath('/listings');
+    revalidatePath(`/listings/${newListing.slug}`);
     revalidatePath('/dashboard');
 
     return { success: true, slug, listing: newListing };
@@ -197,6 +362,13 @@ export async function createListing(
 }
 
 export async function updateListingStatus(listingId: string, status: ListingStatus): Promise<boolean> {
+  const supabase = getSupabaseServer();
+  if (supabase) {
+    try {
+      await supabase.from('listings').update({ status }).eq('id', listingId);
+    } catch (e) {}
+  }
+
   const item = GLOBAL_CUSTOM_LISTINGS.find((l) => l.id === listingId) || LISTINGS_DATA.find((l) => l.id === listingId);
   if (item) {
     item.status = status;
