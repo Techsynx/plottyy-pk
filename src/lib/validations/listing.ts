@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const listingSchema = z.object({
-  title: z.string().min(10, 'Title must be at least 10 characters').max(150, 'Title is too long'),
+  title: z.string().min(5, 'Title must be at least 5 characters').max(150, 'Title is too long'),
   purpose: z.enum(['sale', 'rent']),
   property_type: z.enum(['plot', 'house', 'flat', 'commercial', 'agricultural']),
   subtype: z.string().optional(),
@@ -24,17 +24,17 @@ export const listingSchema = z.object({
   facing: z.string().optional(),
   features: z.array(z.string()).default([]),
   
-  description: z.string().min(20, 'Please write a descriptive summary of at least 20 characters'),
-  contact_phone: z.string().min(10, 'Valid Pakistani phone number required (e.g. 03001234567)'),
+  description: z.string().min(10, 'Please write a descriptive summary of at least 10 characters'),
+  contact_phone: z.string().min(7, 'Valid phone number required'),
   contact_whatsapp: z.string().optional(),
   
   photos: z.array(
     z.object({
-      url: z.string().min(1, 'Photo URL or image data is required'),
+      url: z.string(),
       alt_text: z.string().optional(),
       is_cover: z.boolean().default(false),
     })
-  ).min(1, 'Please upload at least 1 photo of the property'),
+  ).default([]),
 });
 
 export type ListingInput = z.infer<typeof listingSchema>;

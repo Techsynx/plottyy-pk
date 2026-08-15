@@ -251,12 +251,34 @@ export async function createListing(
     const slugBase = validated.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    const slug = `${slugBase}-${id.slice(-4)}`;
+      .replace(/^-+|-+$/g, '') || 'property';
+    const slug = `${slugBase}-${id.slice(-6)}`;
     
     const size_in_sqft = convertToSqft(validated.size, validated.size_unit);
     const city = CITIES_DATA.find((c) => c.id === validated.city_id);
     const location = LOCATIONS_DATA.find((loc) => loc.id === validated.location_id);
+
+    const effectivePhotos = validated.photos.length > 0
+      ? validated.photos.map((p, idx) => ({
+          id: `p-${id}-${idx}`,
+          listing_id: id,
+          storage_path: p.url,
+          url: p.url,
+          alt_text: p.alt_text || validated.title,
+          sort_order: idx,
+          is_cover: idx === 0 || p.is_cover,
+        }))
+      : [
+          {
+            id: `p-${id}-0`,
+            listing_id: id,
+            storage_path: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&auto=format&fit=crop&q=80',
+            url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200&auto=format&fit=crop&q=80',
+            alt_text: validated.title,
+            sort_order: 0,
+            is_cover: true,
+          },
+        ];
 
     const newListing: Listing = {
       id,
@@ -296,56 +318,49 @@ export async function createListing(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       published_at: isDraft ? null : new Date().toISOString(),
-      photos: validated.photos.map((p, idx) => ({
-        id: `p-${id}-${idx}`,
-        listing_id: id,
-        storage_path: p.url,
-        url: p.url,
-        alt_text: p.alt_text || validated.title,
-        sort_order: idx,
-        is_cover: idx === 0 || p.is_cover,
-      })),
+      photos: effectivePhotos,
     };
 
-    // 1. Insert into Supabase Postgres Database
+    // 1. Insert into Supabase with safe 2-second timeout so requests NEVER hang
     const supabase = getSupabaseServer();
     if (supabase) {
       try {
-        await supabase.from('listings').insert({
-          id: newListing.id,
-          user_id: newListing.user_id,
-          title: newListing.title,
-          slug: newListing.slug,
-          description: newListing.description,
-          purpose: newListing.purpose,
-          property_type: newListing.property_type,
-          subtype: newListing.subtype,
-          city_id: newListing.city_id,
-          location_id: newListing.location_id,
-          address_details: newListing.address_details,
-          size: newListing.size,
-          size_unit: newListing.size_unit,
-          size_in_sqft: newListing.size_in_sqft,
-          price: newListing.price,
-          is_price_negotiable: newListing.is_price_negotiable,
-          installment_available: newListing.installment_available,
-          bedrooms: newListing.bedrooms,
-          bathrooms: newListing.bathrooms,
-          floor_number: newListing.floor_number,
-          total_floors: newListing.total_floors,
-          facing: newListing.facing,
-          features: newListing.features,
-          status: newListing.status,
-          is_verified: true,
-          contact_phone: newListing.contact_phone,
-          contact_whatsapp: newListing.contact_whatsapp,
-          photos: newListing.photos,
-          created_at: newListing.created_at,
-          published_at: newListing.published_at,
-        });
-      } catch (e) {
-        console.error('Error inserting listing to Supabase:', e);
-      }
+        await Promise.race([
+          supabase.from('listings').insert({
+            id: newListing.id,
+            user_id: newListing.user_id,
+            title: newListing.title,
+            slug: newListing.slug,
+            description: newListing.description,
+            purpose: newListing.purpose,
+            property_type: newListing.property_type,
+            subtype: newListing.subtype,
+            city_id: newListing.city_id,
+            location_id: newListing.location_id,
+            address_details: newListing.address_details,
+            size: newListing.size,
+            size_unit: newListing.size_unit,
+            size_in_sqft: newListing.size_in_sqft,
+            price: newListing.price,
+            is_price_negotiable: newListing.is_price_negotiable,
+            installment_available: newListing.installment_available,
+            bedrooms: newListing.bedrooms,
+            bathrooms: newListing.bathrooms,
+            floor_number: newListing.floor_number,
+            total_floors: newListing.total_floors,
+            facing: newListing.facing,
+            features: newListing.features,
+            status: newListing.status,
+            is_verified: true,
+            contact_phone: newListing.contact_phone,
+            contact_whatsapp: newListing.contact_whatsapp,
+            photos: newListing.photos,
+            created_at: newListing.created_at,
+            published_at: newListing.published_at,
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('DB Timeout')), 2000)),
+        ]).catch((e) => console.warn('Supabase insert timed out or table missing, continuing:', e?.message));
+      } catch (e) {}
     }
 
     GLOBAL_CUSTOM_LISTINGS.unshift(newListing);

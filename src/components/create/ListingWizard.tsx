@@ -268,21 +268,31 @@ export function ListingWizard() {
       })),
     };
 
-    const res = await createListing(inputData, isDraft, user?.id);
-    setIsSubmitting(false);
+    try {
+      const res = await createListing(inputData, isDraft, user?.id);
 
-    if (res.success && res.slug) {
-      if (res.listing) {
-        try {
-          const existing = localStorage.getItem('plottyy_user_listings');
-          const list = existing ? JSON.parse(existing) : [];
-          list.unshift(res.listing);
-          localStorage.setItem('plottyy_user_listings', JSON.stringify(list));
-        } catch (e) {}
+      if (res.success && res.slug) {
+        if (res.listing) {
+          try {
+            const existing = localStorage.getItem('plottyy_user_listings');
+            const list = existing ? JSON.parse(existing) : [];
+            list.unshift(res.listing);
+            localStorage.setItem('plottyy_user_listings', JSON.stringify(list));
+
+            const publicExisting = localStorage.getItem('plottyy_all_public_listings');
+            const publicList = publicExisting ? JSON.parse(publicExisting) : [];
+            publicList.unshift(res.listing);
+            localStorage.setItem('plottyy_all_public_listings', JSON.stringify(publicList));
+          } catch (e) {}
+        }
+        window.location.href = `/listings/${res.slug}`;
+      } else {
+        setErrorMessage(res.error || 'Failed to create listing. Please check inputs.');
       }
-      router.push(`/listings/${res.slug}`);
-    } else {
-      setErrorMessage(res.error || 'Failed to create listing. Please check inputs.');
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'An unexpected error occurred while publishing.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
